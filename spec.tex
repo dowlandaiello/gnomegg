@@ -1,0 +1,46 @@
+\documentclass{article}
+
+\usepackage[english]{babel}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[margin=1.0in]{geometry}
+\usepackage{qtree}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{textcomp}
+
+\begin{document}
+\title{Gnomegg: A blazing-fast third-party destiny.gg chat server}
+\author{Dowland Aiello}
+\date{April 17, 2020}
+
+\maketitle
+\tableofcontents
+\fancyhf{}
+
+\newpage
+
+\section{Data Schematic}
+
+Gnomegg is entirely backwards-compatible with the destiny.gg chat, and uses
+capnproto. Cap'n proto is generally regarded as the successor to Google's
+protobuf language, and is both platform and language-agnostic. Capnproto poses
+several benefits over protobuf. Namely:
+
+\begin{itemize}
+	\item Cap'n Proto serves as both an interchange and in-memory storage
+		format---no serialization necessary!
+	\item \emph{Promise pipelining}: subsequent messages relying on each other
+		can be ``squashed'' into one message
+	\item Cap'n Proto data can be transferred via a standard bytestream, and can
+		be encrypted in an equally straightforward manner
+\end{itemize}
+
+Outlined below are each of the data types represented in Cap'n proto, for use
+in gnomegg.
+
+\end{document}
