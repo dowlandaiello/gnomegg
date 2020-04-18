@@ -1,4 +1,4 @@
-@0xb2565d68d97959dd
+@0xb2565d68d97959dd;
 
 # A message sent as text, rendered on the client
 struct Message {
@@ -79,10 +79,16 @@ struct Broadcast {
 # with an error
 struct Error {
   # The user that should be notified of the error response
-  concerns @0 :Text;
+  concerns :union {
+    # This error should be sent to all users
+    all @0 :Void;
+
+    # This error should be sent only to an individual user
+    user @1 :Text;
+  }
 
   # The message sent in the error
-  error @1 :Text;
+  error @2 :Text;
 }
 
 # A parsed message
@@ -92,7 +98,7 @@ struct Command {
 
 	# The type of command being issued
 	type :union {
-		# This is a raw text message, possibly containing specially formatted
+    # This is a raw text message, possibly containing specially formatted
 		# text data handled by the client
 		message @1 :Message;	
 
@@ -100,22 +106,22 @@ struct Command {
 		privMessage @2 :PrivMessage;
 
 		# This command is muting a chatter
-		mute @2 :Mute;
+		mute @3 :Mute;
 
 		# This command is unmuting a chatter
-		unmute @3 :Unmute;
+		unmute @4 :Unmute;
 
 		# This command is banning a chatter
-		ban @4 :Ban;
+		ban @5 :Ban;
 
 		# This command is unbanning a chatter
-		unban @5 :Unban;
+		unban @6 :Unban;
 
 		# This command is making the stream sub-only
-		subonly @6 :Subonly;
+		subonly @7 :Subonly;
 
 		# This command is initiating a server-client ping-pong feedback loop
-		ping @7 :Ping;
+		ping @8 :Ping;
 	}
 }
 
@@ -144,5 +150,8 @@ struct Event {
 
     # The server is handling a new message by broadcasting it
     broadcast @5 :Broadcast;
+
+    # The server is responding to a client request with an error
+    error @6 :Error;
 	}
 }
