@@ -1,7 +1,7 @@
 /// Message is a message sent as text, rendered on the client.
 pub struct Message {
     /// The contents of the message
-    data: String,
+    contents: String,
 }
 
 impl Message {
@@ -19,7 +19,7 @@ impl Message {
     /// let msg = Message::new("Mitta mitt mooowooo mitty mitta mitt mwoomooo".to_owned());
     /// ```
     pub fn new(contents: String) -> Self {
-        Self { data: contents }
+        Self { contents }
     }
 
     /// Returns the contents of the message.
@@ -30,10 +30,10 @@ impl Message {
     /// use gnomegg::spec::event::Message;
     ///
     /// let msg = Message::new("Alright, you guys want to hear my most nuclear take?".to_owned());
-    /// msg.contents(); // => "Alright, you guys want to hear my most nuclear take?"
+    /// msg.msg(); // => "Alright, you guys want to hear my most nuclear take?"
     /// ````
-    pub fn contents(&self) -> &str {
-        &self.data
+    pub fn msg(&self) -> &str {
+        &self.contents
     }
 }
 
@@ -95,7 +95,7 @@ impl PrivMessage {
     /// msg.contents(); // => "I have information concerning the murder of Jeffrey Epstein."
     /// ```
     pub fn contents(&self) -> &str {
-        self.message.contents()
+        self.message.msg()
     }
 }
 
@@ -281,7 +281,7 @@ impl Ban {
     }
 }
 
-/// A command used to unban a chatter.
+/// Unban is a command used to unban a chatter.
 pub struct Unban {
     /// The user who will be banned by this command
     concerns: String,
@@ -321,5 +321,49 @@ impl Unban {
     /// ```
     pub fn user(&self) -> &str {
        &self.concerns
+    }
+}
+
+/// Subonly is a command used to set whether or not the chat is open only to
+/// subscribers or not.
+pub struct Subonly {
+    /// Whether or not the chat should be in subonly mode
+    on: bool
+}
+
+impl Subonly {
+    /// Creates a new Subonly command.
+    ///
+    /// # Arguments
+    ///
+    /// * `on` - Whether or not the chat should be in subonly mode
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Subonly;
+    ///
+    /// // Slumlord
+    /// let sub_only = Subonly::new(true);
+    /// ```
+    pub fn new(on: bool) -> Self {
+        Self {
+            on
+        }
+    }
+
+    /// Determines whether or not subonly mode will be active once this command
+    /// is executed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Subonly;
+    ///
+    /// let sub_only = Subonly::new(true);
+    /// sub_only.active(); // => true
+    /// ```
+    pub fn active(&self) -> bool {
+        self.on
     }
 }
