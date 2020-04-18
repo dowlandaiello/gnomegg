@@ -367,5 +367,130 @@ impl Subonly {
 
 /// Ping is a command used to initiate a client-server ping-pong loop.
 pub struct Ping {
+    /// The time at which the ping request was initiated by the user
     initiation_timestamp: DateTime<Utc>,
+}
+
+impl Default for Ping {
+    /// Generates a ping command at the current timestamp.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Ping;
+    /// use std::default::Default;
+    ///
+    /// let current_time_ping = Ping::default();
+    /// ```
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Ping {
+    /// Creates a new ping command at the current time.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Ping;
+    ///
+    /// let ping_request = Ping::new();
+    /// ```
+    pub fn new() -> Self {
+        Self {
+            initiation_timestamp: Utc::now(),
+        }
+    }
+
+    /// Creates a new ping command at the provided time.
+    ///
+    /// # Arguments
+    ///
+    /// * `initiation_timestamp` - The timestamp that the server will assume the
+    /// ping request was made at
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Ping;
+    /// use chrono::{Utc, Duration};
+    ///
+    /// // Spectrum internet REE
+    /// let ping_request = Ping::new_with_initiation_timestamp(Utc::now() - Duration::seconds(420));
+    /// ```
+    pub fn new_with_initiation_timestamp(initiation_timestamp: DateTime<Utc>) -> Self {
+        Self {
+            initiation_timestamp
+        }
+    }
+
+    /// Retreieves the time at which this ping request was initiated.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Ping;
+    ///
+    /// let ping_request = Ping::new();
+    /// ping_request.started_at(); // => Utc::now()
+    /// ```
+    pub fn started_at(&self) -> DateTime<Utc> {
+        self.initiation_timestamp
+    }
+}
+
+/// Pong is an event representing a response to a ping request from the server.
+pub struct Pong {
+    /// The time at which the server responded to the user request for a ping
+   response_timestamp: DateTime<Utc>
+}
+
+impl Default for Pong {
+    /// Generates a new pong response, assuming the server responded at the
+    /// current UTC time.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Pong;
+    /// use std::default::Default;
+    ///
+    /// let ping_response = Pong::default();
+    /// ```
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pong {
+    /// Creates a new pong response.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Pong;
+    ///
+    /// let ping_response = Pong::new();
+    /// ```
+    pub fn new() -> Self {
+        Self {
+            response_timestamp: Utc::now()
+        }
+    }
+
+    /// Retreieves the time at which the server responded to the request for
+    /// ping.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Pong;
+    ///
+    /// let ping_request = Pong::new();
+    /// ping_request.responded_at(); // => Utc::now()
+    /// ```
+    pub fn responded_at(&self) -> DateTime<Utc> {
+        self.response_timestamp
+    }
 }
