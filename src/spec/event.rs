@@ -494,3 +494,64 @@ impl Pong {
         self.response_timestamp
     }
 }
+
+/// Broadcast is an event representing an incoming message, intended for the
+/// entire server.
+pub struct Broadcast {
+    /// The sender of the message
+    sender: String,
+
+    /// The message sent in the broadcast event
+    message: Message,
+}
+
+impl Broadcast {
+    /// Creates a new broadcast event with the given user and message.
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - The username of the sender of the message
+    /// * `message` - The contents of the message to be broadcasted
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Broadcast;
+    ///
+    /// let broadcasted_msg = Broadcast::new("MrMouton".to_owned(), "I am a living meme holy shit. Hacked by a 7 year old.".to_owned());
+    /// ```
+    pub fn new(sender: String, message: String) -> Self {
+        Self {
+            sender,
+            message: Message::new(message),
+        }
+    }
+
+    /// Gets the username of the chatter that sent the message.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Broadcast;
+    ///
+    /// let broadcasted_msg = Broadcast::new("MrMouton".to_owned(), "I am a living meme holy shit. Hacked by a 7 year old.".to_owned());
+    /// broadcasted_msg.sent_by(); // => "MrMouton"
+    /// ```
+    pub fn sent_by(&self) -> &str {
+        &self.sender
+    }
+
+    /// Gets the contents of the broadcasted message.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Broadcast;
+    ///
+    /// let broadcasted_msg = Broadcast::new("MrMouton".to_owned(), "I am a living meme holy shit. Hacked by a 7 year old.".to_owned());
+    /// broadcasted_msg.msg(); // => "I am a living meme holy shit. Hacked by a 7 year old."
+    /// ```
+    pub fn msg(&self) -> &str {
+        self.message.msg()
+    }
+}
