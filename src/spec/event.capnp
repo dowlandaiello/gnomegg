@@ -66,7 +66,7 @@ struct Pong {
   timestamp @0 :Data;
 }
 
-# An event representing an incomming message
+# An event representing an incoming message
 struct Broadcast {
   # The chatter sending this message
   sender @0 :Text; 
