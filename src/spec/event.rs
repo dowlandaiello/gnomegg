@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 /// Message is a message sent as text, rendered on the client.
 pub struct Message {
     /// The contents of the message
@@ -163,7 +165,8 @@ impl Mute {
 /// Unmute is a command used to unmute a particular chatter.
 pub struct Unmute {
     /// The username of the user who will be unmuted by this command
-    concerns: String,}
+    concerns: String,
+}
 
 impl Unmute {
     /// Creates a new unmute command.
@@ -181,9 +184,7 @@ impl Unmute {
     /// let unmute = Unmute::new("essaywriter".to_owned());
     /// ```
     pub fn new(user: String) -> Self {
-        Self {
-            concerns: user
-        }
+        Self { concerns: user }
     }
 
     /// Retreieves the username of the chatter who will be unmuted by this command.
@@ -234,7 +235,7 @@ impl Ban {
         Self {
             concerns: user,
             reasoning: reason,
-            timeframe: duration
+            timeframe: duration,
         }
     }
 
@@ -303,9 +304,7 @@ impl Unban {
     /// let unban = Unban::new("essaywriter".to_owned());
     /// ```
     pub fn new(user: String) -> Self {
-        Self {
-            concerns: user
-        }
+        Self { concerns: user }
     }
 
     /// Retreives the username of the chatter unbanned as a result of this
@@ -320,7 +319,7 @@ impl Unban {
     /// unban.user(); // => "essaywriter"
     /// ```
     pub fn user(&self) -> &str {
-       &self.concerns
+        &self.concerns
     }
 }
 
@@ -328,7 +327,7 @@ impl Unban {
 /// subscribers or not.
 pub struct Subonly {
     /// Whether or not the chat should be in subonly mode
-    on: bool
+    on: bool,
 }
 
 impl Subonly {
@@ -347,9 +346,7 @@ impl Subonly {
     /// let sub_only = Subonly::new(true);
     /// ```
     pub fn new(on: bool) -> Self {
-        Self {
-            on
-        }
+        Self { on }
     }
 
     /// Determines whether or not subonly mode will be active once this command
@@ -366,4 +363,9 @@ impl Subonly {
     pub fn active(&self) -> bool {
         self.on
     }
+}
+
+/// Ping is a command used to initiate a client-server ping-pong loop.
+pub struct Ping {
+    initiation_timestamp: DateTime<Utc>,
 }
