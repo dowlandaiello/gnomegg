@@ -555,3 +555,77 @@ impl Broadcast {
         self.message.msg()
     }
 }
+
+/// EventTarget is a permissioning utility for events emitted by the server or a
+/// client. Events will only be communicated to the specified target group.
+pub enum EventTarget {
+    /// This event targets all active chatters
+    All,
+
+    /// This event targets a specific user
+    User(String),
+
+    /// This event is hidden, and will only be seen by the server
+    Server
+}
+
+/// Error is an event representing a failure response from the server to a set
+/// of clients.
+pub struct Error {
+    /// The users that this error will be communicated to
+    concerns: EventTarget,
+
+    /// The error that will be sent to each user
+    error: String,
+}
+
+impl Error {
+    /// Creates a new error with the given target and error message.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The users the error will be sent to
+    /// * `error` - The error message that will be sent to the aforementioned users
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{Error, EventTarget};
+    ///
+    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord".to_owned());
+    /// ```
+    pub fn new(target: EventTarget, error: String) -> Self {
+        Self {
+            concerns: target,
+            error
+        }
+    }
+
+    /// Determines the users that will be affected by this error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{Error, EventTarget};
+    ///
+    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord".to_owned());
+    /// err.targets(); // => EventTarget::All
+    /// ```
+    pub fn targets(&self) -> &EventTarget {
+        &self.concerns
+    }
+
+    /// Retreieves the message corresponding to this error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{Error, EventTarget};
+    ///
+    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord".to_owned());
+    /// err.err_message(); // => "mister mouton got evicted Slumlord"
+    /// ```
+    pub fn err_message(&self) -> &str {
+        &self.error
+    }
+}
