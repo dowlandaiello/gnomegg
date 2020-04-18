@@ -16,7 +16,7 @@
 
 \begin{document}
 \title{Gnomegg: A blazing-fast third-party destiny.gg chat server}
-\author{Dowland Aiello}
+\author{By Dowland Aiello}
 \date{April 17, 2020}
 
 \maketitle
@@ -28,7 +28,10 @@
 \section{Data Schematic}
 
 Gnomegg is entirely backwards-compatible with the destiny.gg chat, and uses
-capnproto. Cap'n proto is generally regarded as the successor to Google's
+cap'n proto for its built-in RPC server. Calls over WebSockets and JSON/REST are
+still possible, and are documented in this file.
+
+Cap'n proto is generally regarded as the successor to Google's
 protobuf language, and is both platform and language-agnostic. Capnproto poses
 several benefits over protobuf. Namely:
 
@@ -136,5 +139,8 @@ alongside their respective fields are defined as such:
 				communicated to connected clients
 		\end{itemize}
 \end{itemize}
+
+As do each of the even types, an event literal contains a \emph{concerns} field
+itself, which specifies the actor of the event (e.g., server, user, server).
 
 \end{document}

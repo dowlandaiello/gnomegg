@@ -3,5 +3,7 @@ name = "gnomegg"
 version = "0.1.0"
 authors = ["Dowland Aiello <dowlandaiello@gmail.com>"]
 edition = "2018"
+build = "build.rs"
 
-[dependencies]
+[build-dependencies]
+capnpc = "0.12.1"
