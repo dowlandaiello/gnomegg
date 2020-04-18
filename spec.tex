@@ -12,6 +12,7 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{textcomp}
+\usepackage[T1]{fontenc}
 
 \begin{document}
 \title{Gnomegg: A blazing-fast third-party destiny.gg chat server}
@@ -42,5 +43,98 @@ several benefits over protobuf. Namely:
 
 Outlined below are each of the data types represented in Cap'n proto, for use
 in gnomegg.
+
+\subsection{Events}
+
+In gnomegg, an event represents some action taken by a user that must be
+handled by the server, or, in some cases, a response from the server sent to a
+chatter. Gnomegg uses all of the events commonplace in the destiny.gg chat server
+software, but adds an \textbf{Error} event type. Gnomegg's event types,
+alongside their respective fields are defined as such:
+
+\begin{itemize}
+	\item issueCommand: a command was issued by a client
+		\begin{itemize}
+			\item Issuer: the username of the chatter issuing the command
+			\item Type: a union with the following possible values representing
+				the type of command being issued:
+				\begin{itemize}
+					\item Message: an object defined as such, representing a
+						simple text message sent by a chattter, rendered by the
+						client:
+						\begin{itemize}
+							\item Contents: the contents of the message,
+								represented by a UTF-8 encoded string
+						\end{itemize}
+					\item PrivMessage: an object defined as such, representing
+						a message sent only to one chatter, rendered by the client:
+						\begin{itemize}
+							\item Concerns: the username of the chatter that the
+								message should be sent to
+							\item Message: a mesage literal as defined above in
+								the Message schematic
+						\end{itemize}
+					\item Mute: an object defined as such, used to mute a user for
+						a specified amount of time:
+						\begin{itemize}
+							\item Concerns: the username of the chatter who will
+								be muted
+							\item Duration: the number of nanoseconds for which
+								the targeted user should be muted, expressed as
+								a 64-bit unsigned integer
+						\end{itemize}
+					\item Unmute: an object containing a string representing
+						the username of the user who will be banned
+					\item Ban: an object defined as such, used to ban a user
+						for a particular stretch of time:
+						\begin{itemize}
+							\item Concerns: the username of the chatter banned
+								as a result of this command's execution
+							\item Reason: a string representing a moderator's
+								reasoning behind the ban command's issuance
+							\item Duration: the number of nanoseconds for which
+								the targeted user will be banned from chatting
+						\end{itemize}
+					\item Unban: an object defined as such, removing a user
+						from the ban list
+						\begin{itemize}
+							\item Concerns: the username of the chatter who will
+								be unbanned
+						\end{itemize}
+					\item Subonly: an object defined as such, making the chat
+						sub-only mode:
+						\begin{itemize}
+							\item On: whether or not the chat should be in sub-
+								only mode
+						\end{itemize}
+					\item Ping: an object defined as such, initiating a pint-
+						pong response loop:
+						\begin{itemize}
+							\item InitiationTimestamp: a timestamp expressed as
+								a slice of bytes, representing the time at which
+								this command was issued
+						\end{itemize}
+				\end{itemize}
+		\end{itemize}
+	\item pong: the server is responding to a client request to ping with a pong
+		\begin{itemize}
+			\item Timestamp: a slice of bytes representing the time at which
+				the request to ping was received
+		\end{itemize}
+	\item broadcast: the server is broadcasting a message sent by a client to the
+		users in the chat session
+		\begin{itemize}
+			\item Sender: the username of the chatter sending the message
+			\item Message: the message sent, represented as a UTF-8 string
+		\end{itemize}
+	\item error: the server is responding to an individual request with an
+		error that occurred at runtime
+		\begin{itemize}
+			\item Concerns (all | user (username)): the scope of the error---
+				should it be sent to all users in chat, or just one user?
+			\item Error: a string representing the error that will be
+				communicated to connected clients
+		\end{itemize}
+\end{itemize}
 
 \end{document}
