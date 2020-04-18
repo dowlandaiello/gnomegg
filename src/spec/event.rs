@@ -556,19 +556,6 @@ impl Broadcast {
     }
 }
 
-/// EventTarget is a permissioning utility for events emitted by the server or a
-/// client. Events will only be communicated to the specified target group.
-pub enum EventTarget {
-    /// This event targets all active chatters
-    All,
-
-    /// This event targets a specific user
-    User(String),
-
-    /// This event is hidden, and will only be seen by the server
-    Server
-}
-
 /// Error is an event representing a failure response from the server to a set
 /// of clients.
 pub struct Error {
@@ -628,4 +615,132 @@ impl Error {
     pub fn err_message(&self) -> &str {
         &self.error
     }
+}
+
+/// CommandKind represents any one of the possible commands.
+pub enum CommandKind {
+    /// This command sends a message
+    Message(Message),
+
+    /// This command sends a message to one user
+    PrivMessage(PrivMessage),
+
+    /// This command mutes a user
+    Mute(Mute),
+
+    /// This command unmutes a user
+    Unmute(Unmute),
+
+    /// This command bans a user
+    Ban(Ban),
+
+    /// This command unbans a user
+    Unban(Unban),
+
+    /// This command makes the chat sub-only mode
+    Subonly(Subonly),
+
+    /// This command pings a user
+    Ping(Ping)
+}
+
+/// Command represents any valid command, alongside the user issuing the
+/// command.
+pub struct Command {
+    /// The issuer of the command
+    issuer: String,
+
+    /// The type of command being issued
+    kind: CommandKind,
+}
+
+impl Command {
+    /// Creates a new command from the given issuer and individual commmand.
+    ///
+    /// # Arguments
+    ///
+    /// * `issuer` - The username of the chatter issuing the command
+    /// * `cmd` - The underlying command, expressed as a CommandKind
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{CommandKind, Command, Message};
+    ///
+    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let cmd_type = CommandKind::Message(msg);
+    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// ```
+    pub fn new(issuer: String, cmd: CommandKind) -> Self {
+        Self {
+            issuer,
+            kind: cmd
+        }
+    }
+
+    /// Retreives the underlying command from the command.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{CommandKind, Command, Message};
+    ///
+    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let cmd_type = CommandKind::Message(msg);
+    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    ///
+    /// cmd.command_type(); // => CommandKind::Message
+    /// ```
+    pub fn command_type(&self) -> &CommandKind {
+        &self.kind
+    }
+
+    /// Retreieves the username associated with the issuer of the command.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{CommandKind, Command, Message};
+    ///
+    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let cmd_type = CommandKind::Message(msg);
+    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    ///
+    /// cmd.command_type(); // => CommandKind::Message
+    /// ```
+    pub fn sent_by(&self) -> &str {
+        &self.issuer
+    }
+}
+
+/// EventTarget is a permissioning utility for events emitted by the server or a
+/// client. Events will only be communicated to the specified target group.
+pub enum EventTarget {
+    /// This event targets all active chatters
+    All,
+
+    /// This event targets a specific user
+    User(String),
+
+    /// This event is hidden, and will only be seen by the server
+    Server
+}
+
+/// EventKind represents any valid type of event.
+pub enum EventKind {
+    IssueCommand(Command),
+
+    Pong,
+
+    Broadcast,
+
+    Error
+}
+
+/// Event represents any action on gnomegg that might require a change in state.
+pub struct Event {
+    /// Users affected by this event
+    concerns: EventTarget,
+
+
 }
