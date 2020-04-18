@@ -105,7 +105,7 @@ pub struct Mute {
     concerns: String,
 
     /// The number of nanoseconds until the user will be unmuted
-    timeframe: u64,
+    duration: u64,
 }
 
 impl Mute {
@@ -127,7 +127,7 @@ impl Mute {
     pub fn new(user: String, duration: u64) -> Self {
         Self {
             concerns: user,
-            timeframe: duration,
+            duration,
         }
     }
 
@@ -154,17 +154,16 @@ impl Mute {
     /// use gnomegg::spec::event::Mute;
     ///
     /// let mute = Mute::new("essaywriter".to_owned(), 666);
-    /// mute.duration(); // => 666
-    pub fn duration(&self) -> u64 {
-        self.timeframe
+    /// mute.timeframe(); // => 666
+    pub fn timeframe(&self) -> u64 {
+        self.duration
     }
 }
 
 /// Unmute is a command used to unmute a particular chatter.
 pub struct Unmute {
     /// The username of the user who will be unmuted by this command
-    concerns: String,
-}
+    concerns: String,}
 
 impl Unmute {
     /// Creates a new unmute command.
@@ -275,9 +274,52 @@ impl Ban {
     /// use gnomegg::spec::event::Ban;
     ///
     /// let ban = Ban::new("RightToBearArmsLOL".to_owned(), "failing to falsify the Christian god".to_owned(), 1024);
-    /// ban.duration(); // => 1024
+    /// ban.timeframe(); // => 1024
     /// ```
-    pub fn duration(&self) -> u64 {
+    pub fn timeframe(&self) -> u64 {
         self.timeframe
+    }
+}
+
+/// A command used to unban a chatter.
+pub struct Unban {
+    /// The user who will be banned by this command
+    concerns: String,
+}
+
+impl Unban {
+    /// Creates a new unban command.
+    ///
+    /// # Arguments
+    ///
+    /// * `user` - The username of the user unbanned by this command
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Unban;
+    ///
+    /// // Pepega Clap
+    /// let unban = Unban::new("essaywriter".to_owned());
+    /// ```
+    pub fn new(user: String) -> Self {
+        Self {
+            concerns: user
+        }
+    }
+
+    /// Retreives the username of the chatter unbanned as a result of this
+    /// command's execution.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::Unban;
+    ///
+    /// let unban = Unban::new("essaywriter".to_owned());
+    /// unban.user(); // => "essaywriter"
+    /// ```
+    pub fn user(&self) -> &str {
+       &self.concerns
     }
 }
