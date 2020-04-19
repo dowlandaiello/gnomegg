@@ -93,55 +93,55 @@ struct Error {
 
 # A parsed message
 struct Command {
-	# The chatter issuing this command
-	issuer @0 :Text;
+  # The chatter issuing this command
+  issuer @0 :Text;
 
-	# The type of command being issued
-	type :union {
+  # The type of command being issued
+  type :union {
     # This is a raw text message, possibly containing specially formatted
-		# text data handled by the client
-		message @1 :Message;	
+    # text data handled by the client
+    message @1 :Message;
 
-		# This is a raw text message sent to only to a specific client
-		privMessage @2 :PrivMessage;
+    # This is a raw text message sent to only to a specific client
+    privMessage @2 :PrivMessage;
 
-		# This command is muting a chatter
-		mute @3 :Mute;
+    # This command is muting a chatter
+    mute @3 :Mute;
 
-		# This command is unmuting a chatter
-		unmute @4 :Unmute;
+    # This command is unmuting a chatter
+    unmute @4 :Unmute;
 
-		# This command is banning a chatter
-		ban @5 :Ban;
+    # This command is banning a chatter
+    ban @5 :Ban;
 
-		# This command is unbanning a chatter
-		unban @6 :Unban;
+    # This command is unbanning a chatter
+    unban @6 :Unban;
 
-		# This command is making the stream sub-only
-		subonly @7 :Subonly;
+    # This command is making the stream sub-only
+    subonly @7 :Subonly;
 
-		# This command is initiating a server-client ping-pong feedback loop
-		ping @8 :Ping;
-	}
+    # This command is initiating a server-client ping-pong feedback loop
+    ping @8 :Ping;
+  }
 }
 
 # Any operation on gnomegg that might require computation, or change state
 # (e.g., yeeposting, /ping, /ban, etc...)
 struct Event {
   # Events are scoped, and broadcasted only to the respective users
-	concerns :union {
-		# This event targets all users in gnomegg (e.g., broadcast)
-		all @0 :Void;
+  concerns :union {
+    # This event targets all users in gnomegg (e.g., broadcast)
+    all @0 :Void;
 
-		# This event targets a specific user
-		user @1 :Text;
+    # This event targets a specific user
+    user @1 :Text;
 
     # This event should not be sent to any client, and is only for the server to handle
     server @2 :Void;
-	}
+  }
 
   # The type of event
-	type :union {
+  type :union {
     # This event represents a command that has been issued
     issueCommand @3 :Command;
 
@@ -153,5 +153,5 @@ struct Event {
 
     # The server is responding to a client request with an error
     error @6 :Error;
-	}
+  }
 }
