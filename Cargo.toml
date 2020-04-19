@@ -11,3 +11,4 @@ capnpc = "0.12.1"
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0.106", features = ["derive"] }
+redis-async = "0.6.2"
