@@ -1,8 +1,4 @@
-use std::collections::HashMap;
-
-/// CacheEntry represents an entry declaring whether or not a user is muted,
-/// alongside the number of accesses.
-type CacheEntry = (bool, usize);
+use lru::LruCache;
 
 /// Cache is an in-memory cache used in conjunction with gnomegg's redis and
 /// postgres store capabilities. This cache is intended for only a small number
@@ -10,13 +6,7 @@ type CacheEntry = (bool, usize);
 /// persistence database.
 pub struct Cache<'a> {
     /// Recent chatters who have been "muted"
-    mutes: HashMap<String, (bool, usize)>,
-
-    /// The name of the chatter who has interacted the least with this cache
-    least_used: Option<(&'a str, usize)>,
-
-    /// The maximum number of cached mutes
-    max_stored: usize,
+    mutes: LruCache<&'a str, bool>,
 }
 
 impl<'a> Default for Cache<'a> {
@@ -49,9 +39,7 @@ impl<'a> Cache<'a> {
     /// ```
     pub fn new() -> Self {
         Self {
-            mutes: HashMap::new(),
-            least_used: None,
-            max_stored: 24,
+            mutes: LruCache::new(24),
         }
     }
 
@@ -71,9 +59,7 @@ impl<'a> Cache<'a> {
     /// ```
     pub fn new_with_config(cfg: Config) -> Self {
         Self {
-            mutes: HashMap::new(),
-            least_used: None,
-            max_stored: cfg.max_stored,
+            mutes: LruCache::new(cfg.max_stored),
         }
     }
 
@@ -83,18 +69,18 @@ impl<'a> Cache<'a> {
     ///
     /// * `username` - The username of the user whose status should be checked
     /// in the cached mutes list.
-    pub fn get(&mut self, username: &'a str) -> Option<bool> {
-        let muted = self.mutes.get_mut(username)?;
-
-        muted.1 += 1;
-
-        if let Some(previously_least_used) = self.least_used {
-            if muted.1 < previously_least_used.1 {
-                self.least_used = Some((username, muted.1));
-            }
-        }
-
-        Some(muted.0)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::ws_http_server::modules::mutes::Cache;
+    ///
+    /// let mut mutes = Cache::new();
+    ///
+    /// assert_eq!(mutes.get("MrMouton"), None);
+    /// ```
+    pub fn get(&mut self, username: &'a str) -> Option<&bool> {
+        self.mutes.get(&username)
     }
 
     /// Unmutes or mutes the specified user, returning the user's previous mute
@@ -113,37 +99,11 @@ impl<'a> Cache<'a> {
     /// let mut mutes = Cache::new();
     ///
     /// // Deplatformed by Nathan according to Destiny's deplatforming standards GODSTINY
-    /// mutes.set("MrMouton".to_owned(), true);
-    /// assert_eq!(mutes.get("MrMouton").unwrap(), true);
+    /// mutes.set("MrMouton", true);
+    /// assert_eq!(*mutes.get("MrMouton").unwrap(), true);
     /// ```
-    pub fn set(&mut self, username: String, muted: bool) -> Option<CacheEntry> {
-        if self.mutes.len() >= self.max_stored {
-            self.evict();
-        }
-
-        let prev = self.mutes.insert(username, (muted, 0));
-
-        self.least_used = Some((prev, 0));
-
-        prev
-    }
-
-    /// Evicts the least recently used mute entry in the cache.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Config};
-    ///
-    /// let mut mutes = Cache::new_with_config(Config::new(1));
-    /// mutes.set("MrMouton".to_owned(), true);
-    /// mutes.evict();
-    ///
-    /// assert_eq!(mutes.get("MrMouton"), None);
-    /// ```
-    pub fn evict(&mut self) -> Option<CacheEntry> {
-        let least_used = self.least_used.take()?;
-        self.mutes.remove(least_used.0)
+    pub fn set(&mut self, username: &'a str, muted: bool) -> Option<bool> {
+        self.mutes.put(username, muted)
     }
 }
 
