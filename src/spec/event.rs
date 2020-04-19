@@ -742,4 +742,68 @@ pub enum EventKind {
 pub struct Event {
     /// Users affected by this event
     concerns: EventTarget,
+
+    /// The kind of event being emitted
+    kind: EventKind,
+}
+
+impl Event {
+    /// Creates a new event with the given target and underlying event.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - The users that will be affected by this event
+    /// * `underlying_event` - The command, pong, broadcast, or error
+    /// associated with this event
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{CommandKind, Command, Message, Event, EventTarget, EventKind};
+    ///
+    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let cmd_type = CommandKind::Message(msg);
+    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
+    /// ```
+    pub fn new(target: EventTarget, underlying_event: EventKind) -> Self {
+        Self {
+            concerns: target,
+            kind: underlying_event,
+        }
+    }
+
+    /// Determines which set of users will be affected by this event.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{CommandKind, Command, Message, Event, EventTarget, EventKind};
+    ///
+    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let cmd_type = CommandKind::Message(msg);
+    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
+    /// event.targets(); // => EventTarget::User("Destiny")
+    /// ```
+    pub fn targets(&self) -> &EventTarget {
+        &self.concerns
+    }
+
+    /// Determines what kind of event this is.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gnomegg::spec::event::{CommandKind, Command, Message, Event, EventTarget, EventKind};
+    ///
+    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let cmd_type = CommandKind::Message(msg);
+    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
+    /// event.targets(); // => EventTarget::User("Destiny")
+    /// ```
+    pub fn event_kind(&self) -> &EventKind {
+        &self.kind
+    }
 }
