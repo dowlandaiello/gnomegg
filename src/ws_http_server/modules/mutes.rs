@@ -1,12 +1,13 @@
-use redis_async::client::paired::paired_connect;
+use redis_async::{client::paired::{paired_connect, PairedConnection}, error::Error};
+use std::net::SocketAddr;
 
 /// A configuration for the mutes cache.
-pub struct Config {
-    /// The maximum number of mutes stored in-memory
-    max_stored: usize,
+pub struct Config<'a> {
+    /// The address of the redis instance
+    redis_address: &'a SocketAddr,
 }
 
-impl Config {
+impl<'a> Config<'a> {
     /// Creats a new configuration for the mutes cache.
     ///
     /// # Arguments
@@ -17,20 +18,28 @@ impl Config {
     /// # Example
     ///
     /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
     /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
+    /// # use std::error::Error;
     ///
-    /// let cfg = Config::new(69);
-    /// let muted = Cache::new_with_config(cfg);
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address to have been parsed successfully");
+    ///
+    /// let cfg = Config::new(&addr);
+    /// let muted = Cache::new_with_config(cfg).await.expect("a connection to be made to redis");
+    /// # }
     /// ```
-    pub fn new(max_stored: usize) -> Self {
-        Self { max_stored }
+    pub fn new(redis_address: &'a SocketAddr) -> Self {
+        Self { redis_address }
     }
 }
 
 /// Cache is a connection helper to a redis database running remotely or
 /// locally.
 pub struct Cache {
-    connection: PairedConnetion,
+    connection: PairedConnection,
 }
 
 impl Cache {
@@ -40,10 +49,53 @@ impl Cache {
     ///
     /// * `database_address` - The address corresponding to the remote redis
     /// session, formatted as such: 127.0.0.1:6379
-    pub fn new(database_address: &str) -> Self {
-        Self {
-            connection: paired_connect(&database_address).await,
-        }
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address to have been parsed successfully");
+    ///
+    /// let cfg = Cache::new(&addr).await.expect("a connection to be made to redis");
+    /// # }
+    /// ```
+    pub async fn new(database_address: &SocketAddr) -> Result<Self, Error> {
+        Ok(Self {
+            connection: paired_connect(&database_address).await?,
+        })
+    }
+
+    /// Creates a new cache connection with the given configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `cfg` - The configuration that should be used to created the cache
+    /// connection
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address to have been parsed successfully");
+    ///
+    /// let cfg = Config::new(&addr);
+    /// let muted = Cache::new_with_config(cfg).await.expect("a connection to be made to redis");
+    /// # }
+    /// ```
+    pub async fn new_with_config<'a>(cfg: Config<'a>) -> Result<Self, Error> {
+        Self::new(cfg.redis_address).await
     }
 }
 
