@@ -421,7 +421,7 @@ impl Ping {
     /// ```
     pub fn new_with_initiation_timestamp(initiation_timestamp: DateTime<Utc>) -> Self {
         Self {
-            initiation_timestamp
+            initiation_timestamp,
         }
     }
 
@@ -443,7 +443,7 @@ impl Ping {
 /// Pong is an event representing a response to a ping request from the server.
 pub struct Pong {
     /// The time at which the server responded to the user request for a ping
-   response_timestamp: DateTime<Utc>
+    response_timestamp: DateTime<Utc>,
 }
 
 impl Default for Pong {
@@ -475,7 +475,7 @@ impl Pong {
     /// ```
     pub fn new() -> Self {
         Self {
-            response_timestamp: Utc::now()
+            response_timestamp: Utc::now(),
         }
     }
 
@@ -584,7 +584,7 @@ impl Error {
     pub fn new(target: EventTarget, error: String) -> Self {
         Self {
             concerns: target,
-            error
+            error,
         }
     }
 
@@ -641,7 +641,7 @@ pub enum CommandKind {
     Subonly(Subonly),
 
     /// This command pings a user
-    Ping(Ping)
+    Ping(Ping),
 }
 
 /// Command represents any valid command, alongside the user issuing the
@@ -672,10 +672,7 @@ impl Command {
     /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
     /// ```
     pub fn new(issuer: String, cmd: CommandKind) -> Self {
-        Self {
-            issuer,
-            kind: cmd
-        }
+        Self { issuer, kind: cmd }
     }
 
     /// Retreives the underlying command from the command.
@@ -723,24 +720,26 @@ pub enum EventTarget {
     User(String),
 
     /// This event is hidden, and will only be seen by the server
-    Server
+    Server,
 }
 
 /// EventKind represents any valid type of event.
 pub enum EventKind {
+    /// This event represents a new command being issued
     IssueCommand(Command),
 
+    /// This event represents a response to a ping request from the server
     Pong,
 
+    /// This event represents a new message being broadcasted
     Broadcast,
 
-    Error
+    /// This event represents a response to a client request with an error
+    Error,
 }
 
 /// Event represents any action on gnomegg that might require a change in state.
 pub struct Event {
     /// Users affected by this event
     concerns: EventTarget,
-
-
 }
