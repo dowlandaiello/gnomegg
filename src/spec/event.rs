@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 
 /// Message is a message sent as text, rendered on the client.
+#[derive(Serialize, Deserialize)]
 pub struct Message {
     /// The contents of the message
     contents: String,
@@ -41,6 +43,7 @@ impl Message {
 
 /// PrivMessage is a message sent as text, rendered on the client corresponding
 /// to the user that the message is targeting
+#[derive(Serialize, Deserialize)]
 pub struct PrivMessage {
     /// The username of the chatter that the message will be sent to
     concerns: String,
@@ -102,6 +105,7 @@ impl PrivMessage {
 }
 
 /// Mute is a command issued to mute a particular user.
+#[derive(Serialize, Deserialize)]
 pub struct Mute {
     /// The user that will be muted by this command
     concerns: String,
@@ -163,6 +167,7 @@ impl Mute {
 }
 
 /// Unmute is a command used to unmute a particular chatter.
+#[derive(Serialize, Deserialize)]
 pub struct Unmute {
     /// The username of the user who will be unmuted by this command
     concerns: String,
@@ -203,6 +208,7 @@ impl Unmute {
 }
 
 /// Ban is a command that bans a cringeposter.
+#[derive(Serialize, Deserialize)]
 pub struct Ban {
     /// The user that was banned
     concerns: String,
@@ -283,6 +289,7 @@ impl Ban {
 }
 
 /// Unban is a command used to unban a chatter.
+#[derive(Serialize, Deserialize)]
 pub struct Unban {
     /// The user who will be banned by this command
     concerns: String,
@@ -325,6 +332,7 @@ impl Unban {
 
 /// Subonly is a command used to set whether or not the chat is open only to
 /// subscribers or not.
+#[derive(Serialize, Deserialize)]
 pub struct Subonly {
     /// Whether or not the chat should be in subonly mode
     on: bool,
@@ -366,6 +374,7 @@ impl Subonly {
 }
 
 /// Ping is a command used to initiate a client-server ping-pong loop.
+#[derive(Serialize, Deserialize)]
 pub struct Ping {
     /// The time at which the ping request was initiated by the user
     initiation_timestamp: DateTime<Utc>,
@@ -441,6 +450,7 @@ impl Ping {
 }
 
 /// Pong is an event representing a response to a ping request from the server.
+#[derive(Serialize, Deserialize)]
 pub struct Pong {
     /// The time at which the server responded to the user request for a ping
     response_timestamp: DateTime<Utc>,
@@ -497,6 +507,7 @@ impl Pong {
 
 /// Broadcast is an event representing an incoming message, intended for the
 /// entire server.
+#[derive(Serialize, Deserialize)]
 pub struct Broadcast {
     /// The sender of the message
     sender: String,
@@ -558,6 +569,7 @@ impl Broadcast {
 
 /// Error is an event representing a failure response from the server to a set
 /// of clients.
+#[derive(Serialize, Deserialize)]
 pub struct Error {
     /// The users that this error will be communicated to
     concerns: EventTarget,
@@ -618,6 +630,7 @@ impl Error {
 }
 
 /// CommandKind represents any one of the possible commands.
+#[derive(Serialize, Deserialize)]
 pub enum CommandKind {
     /// This command sends a message
     Message(Message),
@@ -646,6 +659,7 @@ pub enum CommandKind {
 
 /// Command represents any valid command, alongside the user issuing the
 /// command.
+#[derive(Serialize, Deserialize)]
 pub struct Command {
     /// The issuer of the command
     issuer: String,
@@ -712,6 +726,7 @@ impl Command {
 
 /// EventTarget is a permissioning utility for events emitted by the server or a
 /// client. Events will only be communicated to the specified target group.
+#[derive(Serialize, Deserialize)]
 pub enum EventTarget {
     /// This event targets all active chatters
     All,
@@ -724,6 +739,7 @@ pub enum EventTarget {
 }
 
 /// EventKind represents any valid type of event.
+#[derive(Serialize, Deserialize)]
 pub enum EventKind {
     /// This event represents a new command being issued
     IssueCommand(Command),
@@ -739,6 +755,7 @@ pub enum EventKind {
 }
 
 /// Event represents any action on gnomegg that might require a change in state.
+#[derive(Serialize, Deserialize)]
 pub struct Event {
     /// Users affected by this event
     concerns: EventTarget,
