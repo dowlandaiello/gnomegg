@@ -5,12 +5,12 @@ use redis_async::{
 use std::net::SocketAddr;
 
 /// A configuration for the mutes cache.
-pub struct Config<'a> {
+pub struct CacheConfig<'a> {
     /// The address of the redis instance
     redis_address: &'a SocketAddr,
 }
 
-impl<'a> Config<'a> {
+impl<'a> CacheConfig<'a> {
     /// Creats a new configuration for the mutes cache.
     ///
     /// # Arguments
@@ -97,7 +97,7 @@ impl Cache {
     /// let muted = Cache::new_with_config(cfg).await.expect("a connection must be made to redis");
     /// # }
     /// ```
-    pub async fn new_with_config<'a>(cfg: Config<'a>) -> Result<Self, Error> {
+    pub async fn new_with_config<'a>(cfg: CacheConfig<'a>) -> Result<Self, Error> {
         Self::new(cfg.redis_address).await
     }
 
@@ -165,6 +165,9 @@ impl Cache {
             .map(|raw| raw.parse::<bool>().ok())
     }
 }
+
+/// Persistent is a mysql-based persistence layer for the gnomegg mutes backend.
+pub struct Persistent {}
 
 /// Manages mutes across redis, postgres, and the LRU cache.
 pub struct Manager {
