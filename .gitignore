@@ -17,6 +17,9 @@ Cargo.lock
 # Capn' Proto Compiled Files
 *_capnp.rs
 
+# Environment variables
+*.env
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
