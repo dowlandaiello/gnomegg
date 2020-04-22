@@ -29,8 +29,9 @@ pub trait Provider {
     /// # #[tokio::main]
     /// # async fn main() {
     /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let mutes = Cache::new(&addr).await.expect("a connection must be made to redis");
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
@@ -53,8 +54,9 @@ pub trait Provider {
     /// # #[tokio::main]
     /// # async fn main() {
     /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let mutes = Cache::new(&addr).await.expect("a connection must be made to redis");
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
     /// # }
@@ -89,8 +91,8 @@ impl From<Error> for ProviderError {
 
 /// A configuration for the mutes cache.
 pub struct CacheConfig<'a> {
-    /// The address of the redis instance
-    redis_address: &'a SocketAddr,
+    /// The redis instance connection
+    connection: &'a PairedConnection,
 }
 
 impl<'a> CacheConfig<'a> {
@@ -107,28 +109,30 @@ impl<'a> CacheConfig<'a> {
     /// # #[macro_use]
     /// # extern crate tokio;
     /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
+    /// use redis_async::client::paired::paired_connect;
     /// # use std::error::Error;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
     /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let cfg = Config::new(&addr);
+    /// let cfg = Config::new(&conn);
     /// let muted = Cache::new_with_config(cfg).await.expect("a connection must be made to redis");
     /// # }
     /// ```
-    pub fn new(redis_address: &'a SocketAddr) -> Self {
-        Self { redis_address }
+    pub fn new(connection: &'a PairedConnection) -> Self {
+        Self { connection }
     }
 }
 
 /// Cache is a connection helper to a redis database running remotely or
 /// locally.
-pub struct Cache {
-    connection: PairedConnection,
+pub struct Cache<'a> {
+    connection: &'a PairedConnection,
 }
 
-impl Cache {
+impl<'a> Cache<'a> {
     /// Creates a new cache connection with the given remote database address.
     ///
     /// # Arguments
@@ -147,14 +151,15 @@ impl Cache {
     /// # #[tokio::main]
     /// # async fn main() {
     /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let cfg = Cache::new(&addr).await.expect("a connection must be made to redis");
+    /// let cfg = Cache::new(&conn).await.expect("a connection must be made to redis");
     /// # }
     /// ```
-    pub async fn new(database_address: &SocketAddr) -> Result<Self, Error> {
-        Ok(Self {
-            connection: paired_connect(&database_address).await?,
-        })
+    pub fn new(connection: &'a PairedConnection) -> Self {
+        Self {
+            connection,
+        }
     }
 
     /// Creates a new cache connection with the given configuration.
@@ -175,18 +180,19 @@ impl Cache {
     /// # #[tokio::main]
     /// # async fn main() {
     /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let cfg = Config::new(&addr);
+    /// let cfg = Config::new(&conn);
     /// let muted = Cache::new_with_config(cfg).await.expect("a connection must be made to redis");
     /// # }
     /// ```
-    pub async fn new_with_config<'a>(cfg: CacheConfig<'a>) -> Result<Self, Error> {
-        Self::new(cfg.redis_address).await
+    pub async fn new_with_config(cfg: CacheConfig<'a>) -> Self, Error {
+        Self::new(cfg.connection)
     }
 }
 
 #[async_trait]
-impl Provider for Cache {
+impl<'a> Provider for Cache<'a> {
     /// Sets a user's muted status in the redis caching layer.
     ///
     /// # Arguments
@@ -205,8 +211,9 @@ impl Provider for Cache {
     /// # #[tokio::main]
     /// # async fn main() {
     /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let mutes = Cache::new(&addr).await.expect("a connection must be made to redis");
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
@@ -239,8 +246,9 @@ impl Provider for Cache {
     /// # #[tokio::main]
     /// # async fn main() {
     /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let mutes = Cache::new(&addr).await.expect("a connection must be made to redis");
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
     /// # }
@@ -292,7 +300,7 @@ impl<'a> Provider for Persistent<'a> {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, usrename: &str, muted: bool) -> Result<Option<bool>, Error> {
+    async fn set_muted(&self, usrename: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
 
     }
 }
