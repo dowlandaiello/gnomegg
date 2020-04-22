@@ -20,58 +20,63 @@ CREATE TABLE users (
        acepts_gifts BOOLEAN,
 
        -- This user's minecraft username
-       minecraft_name CARCHAR(16) UNIQUE KEY
+       minecraft_name VARCHAR(16) UNIQUE KEY
 );
 
 -- Users who have used reddit to connect to their accounts.
 CREATE TABLE reddit_connected (
        -- The ID assigned by gnomegg to the user
-       id PRIMARY KEY,
+       id INT PRIMARY KEY,
 
-       -- The ID assigned by reddit to the user
-       reddit_id UNIQUE KEY
+       -- The ID assigned by reddit to the user, encoded as a BLAKE3 hash in
+       -- base58
+       reddit_id BINARY(32) UNIQUE KEY
 );
 
 -- Users who have used twitch to connect their accounts.
 CREATE TABLE twitch_connected (
        -- The ID assigned by gnomegg to the user
-       id PRIMARY KEY,
+       id INT PRIMARY KEY,
 
-       -- The ID assigned by twitch to the user
-       twitch_id UNIQUE KEY
+       -- The ID assigned by twitch to the user, encoded as a 32-byte BLAKE3
+       -- hash
+       twitch_id BINARY(32) UNIQUE KEY
 );
 
 -- Users who have used twitter to connect their accounts.
 CREATE TABLE twitter_connected (
        -- The ID assigned by gnomegg to the user
-       id PRIMARY KEY
+       id INT PRIMARY KEY,
 
-       -- The ID assigned by twitter to the user
-       twitter_id UNIQUE KEY
+       -- The ID assigned by twitter to the user, encoded as a 32-byte BLAKE3
+       -- hash
+       twitter_id BINARY(32) UNIQUE KEY
 );
 
 -- Users who have used a google account to connect their accounts.
 CREATE TABLE google_connected (
        -- The ID assigned by gnomegg to the user
-       id PRIMARY KEY,
+       id INT PRIMARY KEY,
 
-       -- The ID assigned by google to the user
-       google_id UNIQUE KEy
+       -- The ID assigned by google to the user, encoded as a 32-byte BLAKE3
+       -- hash
+       google_id BINARY(32) UNIQUE KEY
 );
 
 -- Users who have used a discord account to connect their accounts.
 CREATE TABLE discord_connected (
        -- The ID assigned by gnomegg to the user
-       id PRIMARY KEY,
+       id INT PRIMARY KEY,
 
-       -- The ID assigned by discord to the user
-       discord_id UNIQUE KEY
+       -- The ID assigned by discord to the user, encoded as a 32-byte BLAKE3
+       -- hash
+       discord_id BINARY(32) UNIQUE KEY
 );
 
 -- Permissions for each user registered for gnome.gg
 CREATE TABLE roles (
        -- The ID for the user whose roles should be noted
-       id PRIMARY KEY,
+       id INT PRIMARY KEY,
 
        -- Whether or not this user is an administrator
        administrator BOOLEAN,
