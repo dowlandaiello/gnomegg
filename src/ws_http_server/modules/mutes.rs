@@ -1,10 +1,7 @@
-use redis_async::{
-    client::paired::{paired_connect, PairedConnection},
-    error::Error,
-};
-use diesel::mysql::MysqlConnection;
 use async_trait::async_trait;
-use std::{net::SocketAddr, fmt};
+use diesel::mysql::MysqlConnection;
+use redis_async::{client::paired::PairedConnection, error::Error};
+use std::fmt;
 
 /// Provider represents an arbitrary backend for the mutes service that may or
 /// may not present an accurate or up to date view of the entire history of
@@ -73,7 +70,7 @@ pub enum ProviderError {
 impl fmt::Display for ProviderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RedisError(err) => write!(f, "the provider encountered a redis error: {}", err)
+            Self::RedisError(err) => write!(f, "the provider encountered a redis error: {}", err),
         }
     }
 }
@@ -86,43 +83,6 @@ impl From<Error> for ProviderError {
     /// * `e` - The redis error that should be wrapper in the ProviderError
     fn from(e: Error) -> Self {
         Self::RedisError(e)
-    }
-}
-
-/// A configuration for the mutes cache.
-pub struct CacheConfig<'a> {
-    /// The redis instance connection
-    connection: &'a PairedConnection,
-}
-
-impl<'a> CacheConfig<'a> {
-    /// Creats a new configuration for the mutes cache.
-    ///
-    /// # Arguments
-    ///
-    /// * `max_stored` - The maximum number of chatters stored in the cache.
-    /// Chatters are evicted on an LRU basis.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
-    /// use redis_async::client::paired::paired_connect;
-    /// # use std::error::Error;
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
-    ///
-    /// let cfg = Config::new(&conn);
-    /// let muted = Cache::new_with_config(cfg).await.expect("a connection must be made to redis");
-    /// # }
-    /// ```
-    pub fn new(connection: &'a PairedConnection) -> Self {
-        Self { connection }
     }
 }
 
@@ -157,37 +117,7 @@ impl<'a> Cache<'a> {
     /// # }
     /// ```
     pub fn new(connection: &'a PairedConnection) -> Self {
-        Self {
-            connection,
-        }
-    }
-
-    /// Creates a new cache connection with the given configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `cfg` - The configuration that should be used to created the cache
-    /// connection
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
-    /// # use std::error::Error;
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
-    ///
-    /// let cfg = Config::new(&conn);
-    /// let muted = Cache::new_with_config(cfg).await.expect("a connection must be made to redis");
-    /// # }
-    /// ```
-    pub async fn new_with_config(cfg: CacheConfig<'a>) -> Self, Error {
-        Self::new(cfg.connection)
+        Self { connection }
     }
 }
 
@@ -264,18 +194,17 @@ impl<'a> Provider for Cache<'a> {
 
 /// Persistent is a mysql-based persistence layer for the gnomegg mutes backend.
 pub struct Persistent<'a> {
-   connection: &'a MysqlConnection
+    connection: &'a MysqlConnection,
 }
 
 impl<'a> Persistent<'a> {
     /// Creates a new connection to the mysql backend, and provides
     pub fn new(connection: &'a MysqlConnection) -> Self {
-        Self {
-            connection
-        }
+        Self { connection }
     }
 }
 
+#[async_trait]
 impl<'a> Provider for Persistent<'a> {
     /// Sets a user's muted status in the redis caching layer.
     ///
@@ -300,12 +229,10 @@ impl<'a> Provider for Persistent<'a> {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, usrename: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
-
-    }
+    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {}
 }
 
 /// Manages mutes across redis, postgres, and the LRU cache.
-pub struct Manager {
-    cache_conn: Cache,
+pub struct Manager<'a> {
+    cache_conn: Cache<'a>,
 }

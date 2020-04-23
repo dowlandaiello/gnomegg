@@ -16,5 +16,6 @@ tokio = { version = "0.2.18", features = ["full"] }
 r2d2 = "0.8.8"
 mysql = "18.2.0"
 dotenv = "0.15.0"
-diesel = {version = "1.4.4", features = ["mysql"] }
+diesel = { version = "1.4.4", features = ["mysql", "r2d2", "serde_json", "numeric"] }
 async-trait = "0.1.30"
+blake3 = "0.3.2"

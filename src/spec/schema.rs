@@ -1,14 +1,16 @@
 table! {
     discord_connected (id) {
         id -> Integer,
-        discord_id -> Nullable<Binary>,
+        id_hash -> Nullable<Binary>,
+        id_value -> Nullable<Text>,
     }
 }
 
 table! {
     google_connected (id) {
         id -> Integer,
-        google_id -> Nullable<Binary>,
+        id_hash -> Nullable<Binary>,
+        id_value -> Nullable<Text>,
     }
 }
 
@@ -23,7 +25,8 @@ table! {
 table! {
     reddit_connected (id) {
         id -> Integer,
-        reddit_id -> Nullable<Binary>,
+        id_hash -> Nullable<Binary>,
+        id_value -> Nullable<Text>,
     }
 }
 
@@ -42,14 +45,16 @@ table! {
 table! {
     twitch_connected (id) {
         id -> Integer,
-        twitch_id -> Nullable<Binary>,
+        id_hash -> Nullable<Binary>,
+        id_value -> Nullable<Text>,
     }
 }
 
 table! {
     twitter_connected (id) {
         id -> Integer,
-        twitter_id -> Nullable<Binary>,
+        id_hash -> Nullable<Binary>,
+        id_value -> Nullable<Text>,
     }
 }
 
@@ -59,7 +64,7 @@ table! {
         username -> Nullable<Varchar>,
         verified -> Bool,
         nationality -> Nullable<Text>,
-        acepts_gifts -> Nullable<Bool>,
+        accepts_gifts -> Nullable<Bool>,
         minecraft_name -> Nullable<Varchar>,
     }
 }

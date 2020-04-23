@@ -1,14 +1,15 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
+use diesel::Insertable;
 
 /// Message is a message sent as text, rendered on the client.
 #[derive(Serialize, Deserialize)]
-pub struct Message {
+pub struct Message<'a> {
     /// The contents of the message
-    contents: String,
+    contents: &'a str,
 }
 
-impl Message {
+impl<'a> Message<'a> {
     /// Creates a new owned message.
     ///
     /// # Arguments
@@ -20,9 +21,9 @@ impl Message {
     /// ```
     /// use gnomegg::spec::event::Message;
     ///
-    /// let msg = Message::new("Mitta mitt mooowooo mitty mitta mitt mwoomooo".to_owned());
+    /// let msg = Message::new("Mitta mitt mooowooo mitty mitta mitt mwoomooo");
     /// ```
-    pub fn new(contents: String) -> Self {
+    pub fn new(contents: &'a str) -> Self {
         Self { contents }
     }
 
@@ -33,7 +34,7 @@ impl Message {
     /// ```
     /// use gnomegg::spec::event::Message;
     ///
-    /// let msg = Message::new("Alright, you guys want to hear my most nuclear take?".to_owned());
+    /// let msg = Message::new("Alright, you guys want to hear my most nuclear take?");
     /// msg.msg(); // => "Alright, you guys want to hear my most nuclear take?"
     /// ````
     pub fn msg(&self) -> &str {
@@ -44,15 +45,15 @@ impl Message {
 /// PrivMessage is a message sent as text, rendered on the client corresponding
 /// to the user that the message is targeting
 #[derive(Serialize, Deserialize)]
-pub struct PrivMessage {
+pub struct PrivMessage<'a> {
     /// The username of the chatter that the message will be sent to
-    concerns: String,
+    concerns: &'a str,
 
     /// The contents of the private message
-    message: Message,
+    message: Message<'a>,
 }
 
-impl PrivMessage {
+impl<'a> PrivMessage<'a> {
     /// Creates a new owned private message.
     ///
     /// # Arguments
@@ -68,7 +69,7 @@ impl PrivMessage {
     ///
     /// let msg = PrivMessage::new("essaywriter".to_owned(), "I have information concerning the murder of Jeffrey Epstein.".to_owned());
     /// ```
-    pub fn new(to: String, contents: String) -> Self {
+    pub fn new(to: &'a str, contents: &'a str) -> Self {
         Self {
             concerns: to,
             message: Message::new(contents),
@@ -508,15 +509,15 @@ impl Pong {
 /// Broadcast is an event representing an incoming message, intended for the
 /// entire server.
 #[derive(Serialize, Deserialize)]
-pub struct Broadcast {
+pub struct Broadcast<'a> {
     /// The sender of the message
-    sender: String,
+    sender: &'a str,
 
     /// The message sent in the broadcast event
-    message: Message,
+    message: Message<'a>,
 }
 
-impl Broadcast {
+impl<'a> Broadcast<'a> {
     /// Creates a new broadcast event with the given user and message.
     ///
     /// # Arguments
@@ -531,7 +532,7 @@ impl Broadcast {
     ///
     /// let broadcasted_msg = Broadcast::new("MrMouton".to_owned(), "I am a living meme holy shit. Hacked by a 7 year old.".to_owned());
     /// ```
-    pub fn new(sender: String, message: String) -> Self {
+    pub fn new(sender: &'a str, message: &'a str) -> Self {
         Self {
             sender,
             message: Message::new(message),
@@ -631,12 +632,13 @@ impl Error {
 
 /// CommandKind represents any one of the possible commands.
 #[derive(Serialize, Deserialize)]
-pub enum CommandKind {
+pub enum CommandKind<'a> {
     /// This command sends a message
-    Message(Message),
+    #[serde(borrow)]
+    Message(Message<'a>),
 
     /// This command sends a message to one user
-    PrivMessage(PrivMessage),
+    PrivMessage(PrivMessage<'a>),
 
     /// This command mutes a user
     Mute(Mute),
@@ -660,15 +662,16 @@ pub enum CommandKind {
 /// Command represents any valid command, alongside the user issuing the
 /// command.
 #[derive(Serialize, Deserialize)]
-pub struct Command {
+pub struct Command<'a> {
     /// The issuer of the command
     issuer: String,
 
     /// The type of command being issued
-    kind: CommandKind,
+    #[serde(borrow)]
+    kind: CommandKind<'a>,
 }
 
-impl Command {
+impl<'a> Command<'a> {
     /// Creates a new command from the given issuer and individual commmand.
     ///
     /// # Arguments
@@ -685,7 +688,7 @@ impl Command {
     /// let cmd_type = CommandKind::Message(msg);
     /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
     /// ```
-    pub fn new(issuer: String, cmd: CommandKind) -> Self {
+    pub fn new(issuer: String, cmd: CommandKind<'a>) -> Self {
         Self { issuer, kind: cmd }
     }
 
@@ -740,9 +743,10 @@ pub enum EventTarget {
 
 /// EventKind represents any valid type of event.
 #[derive(Serialize, Deserialize)]
-pub enum EventKind {
+pub enum EventKind<'a> {
     /// This event represents a new command being issued
-    IssueCommand(Command),
+    #[serde(borrow)]
+    IssueCommand(Command<'a>),
 
     /// This event represents a response to a ping request from the server
     Pong,
@@ -756,15 +760,16 @@ pub enum EventKind {
 
 /// Event represents any action on gnomegg that might require a change in state.
 #[derive(Serialize, Deserialize)]
-pub struct Event {
+pub struct Event<'a> {
     /// Users affected by this event
     concerns: EventTarget,
 
     /// The kind of event being emitted
-    kind: EventKind,
+    #[serde(borrow)]
+    kind: EventKind<'a>,
 }
 
-impl Event {
+impl<'a> Event<'a> {
     /// Creates a new event with the given target and underlying event.
     ///
     /// # Arguments
@@ -783,7 +788,7 @@ impl Event {
     /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
     /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
     /// ```
-    pub fn new(target: EventTarget, underlying_event: EventKind) -> Self {
+    pub fn new(target: EventTarget, underlying_event: EventKind<'a>) -> Self {
         Self {
             concerns: target,
             kind: underlying_event,
