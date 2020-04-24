@@ -23,6 +23,18 @@ CREATE TABLE users (
 	minecraft_name VARCHAR(16) UNIQUE KEY
 );
 
+-- IDs pertaining to each username in the database
+CREATE TABLE ids (
+	-- The ID of the mapping entry
+	id SERIAL,
+
+	-- The username of the gnomegg user
+	username VARCHAR(20) PRIMARY KEY,
+
+	-- The ID of the user
+	user_id INT
+);
+
 -- Users who have used reddit to connect to their accounts.
 CREATE TABLE reddit_connected (
 	-- The ID assigned by gnomegg to the user

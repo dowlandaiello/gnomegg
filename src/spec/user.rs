@@ -1,6 +1,6 @@
-use diesel::Insertable;
+use diesel::{Insertable, dsl::Find};
 use serde::{Deserialize, Serialize};
-use super::schema::users;
+use super::schema::{users, ids};
 
 /// User represents a generic gnome.gg user.
 #[derive(Insertable, Identifiable, Serialize, Deserialize)]
@@ -43,6 +43,32 @@ pub(crate) struct NewUser<'a> {
 
     /// The user's minecraft username
     minecraft_name: &'a str
+}
+
+/// IDs represents each ID attached to each user in the database.
+#[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
+#[belongs_to(User)]
+#[table_name = "ids"]
+pub struct IdMapping {
+    /// The nonce of the username => id mapping
+    id: i32,
+
+    /// The username of the user
+    username: String,
+
+    /// The user ID of the user
+    user_id: i32,
+}
+
+/// NewIDMapping represents a new entry mapping a username to a user ID.
+#[derive(Insertable, Serialize, Deserialize)]
+#[table_name = "ids"]
+pub(crate) struct NewIdMapping<'a> {
+    /// The username of the user
+    username: &'a str,
+
+    /// The user ID of the user
+    user_id: i32
 }
 
 /// OauthConnection represents a generic connection to an oauth provider for a

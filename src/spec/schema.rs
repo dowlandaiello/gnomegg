@@ -15,10 +15,18 @@ table! {
 }
 
 table! {
+    ids (username) {
+        id -> Unsigned<Bigint>,
+        username -> Varchar,
+        user_id -> Nullable<Integer>,
+    }
+}
+
+table! {
     mutes (user_id) {
         user_id -> Integer,
         duration -> Bigint,
-        initiated_at -> Nullable<Timestamp>,
+        initiated_at -> Timestamp,
     }
 }
 
@@ -72,6 +80,7 @@ table! {
 allow_tables_to_appear_in_same_query!(
     discord_connected,
     google_connected,
+    ids,
     mutes,
     reddit_connected,
     roles,

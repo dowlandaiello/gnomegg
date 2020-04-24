@@ -3,7 +3,7 @@ use diesel::mysql::MysqlConnection;
 use redis_async::{client::paired::PairedConnection, error::Error};
 use std::fmt;
 
-use super::super::super::spec::mute::Mute;
+use super::super::super::spec::{mute::Mute, schema::{ids, mutes}};
 
 /// Provider represents an arbitrary backend for the mutes service that may or
 /// may not present an accurate or up to date view of the entire history of
@@ -230,10 +230,6 @@ impl<'a> Provider for Persistent<'a> {
     /// # }
     /// ```
     async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
-        let entry = Mute{
-            user_id: 
-        };
-    }
 }
 
 /// Manages mutes across redis, postgres, and the LRU cache.
