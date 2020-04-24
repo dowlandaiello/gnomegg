@@ -10,12 +10,14 @@ use super::super::super::spec::{mute::Mute, schema::{ids, mutes}};
 /// mutes. Providers should be used in conjunction unless otherwise specified.
 #[async_trait]
 pub trait Provider {
-    /// Sets a user's muted status in the redis caching layer.
+    /// Sets a user's muted status in the active provider.
     ///
     /// # Arguments
     ///
-    /// * `username` - The username of the chatter who will be muted by this command
+    /// * `user_id` - The ID of the chatter who will be muted by this command
     /// * `muted` - Whether or not this user should be muted
+    /// * `duration` - (optional) The number of nanoseconds that the mute
+    /// should be active for (this does not apply for unmuting a user)
     ///
     /// # Example
     ///
@@ -34,13 +36,41 @@ pub trait Provider {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError>;
+    async fn set_muted(&self, user_id: i32, muted: bool, duration: Option<u64>) -> Result<Option<bool>, ProviderError>;
+
+    /// Registers a gnomegg mute primitive in the active provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `mute` - The mute primitive that should be used to modify the mutes
+    /// state
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::{ws_http_server::modules::mutes::{Config, Cache, Provider}, spec::mute::Mute};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let mute = Mute::new(0, 1024);
+    ///
+    /// mutes.register_mute(mute).await.expect("harkdan should be muted");
+    /// # }
+    /// ```
+    async fn register_mute(&self, mute: Mute) -> Result<Option<bool>, ProviderError>;
 
     /// Checks whether or not a user with the given username has been muted
     ///
     /// # Arguments
     ///
-    /// * `username` - The username for which the "muted" value should be fetched
+    /// * `user_id` - The ID for which the "muted" value should be fetched
     ///
     /// # Example
     ///
@@ -60,7 +90,7 @@ pub trait Provider {
     /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
     /// # }
     /// ```
-    async fn is_muted(&self, username: &str) -> Result<Option<bool>, ProviderError>;
+    async fn is_muted(&self, user_id: &str) -> Result<Option<bool>, ProviderError>;
 }
 
 /// ProviderError represents any error emitted by a mute backend.
@@ -129,7 +159,7 @@ impl<'a> Provider for Cache<'a> {
     ///
     /// # Arguments
     ///
-    /// * `username` - The username of the chatter who will be muted by this command
+    /// * `user_id` - The ID of the chatter who will be muted by this command
     /// * `muted` - Whether or not this user should be muted
     ///
     /// # Example
@@ -149,15 +179,46 @@ impl<'a> Provider for Cache<'a> {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
+    async fn set_muted(&self, user_id: i32, muted: bool) -> Result<Option<bool>, ProviderError> {
         self.connection
             .send::<Option<bool>>(resp_array![
                 "SET",
-                format!("muted::{}", username),
+                format!("muted::{}", user_id),
                 format!("{}", muted)
             ])
             .await
             .map_err(|err| err.into())
+    }
+    
+    /// Registers a gnomegg mute primitive in the cache backend.
+    ///
+    /// # Arguments
+    ///
+    /// * `mute` - The mute primitive that should be used to modify the mutes
+    /// state
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::{ws_http_server::modules::mutes::{Config, Cache, Provider}, spec::mute::Mute};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let mute = Mute::new(0, 1024);
+    ///
+    /// mutes.register_mute(mute).await.expect("harkdan should be muted");
+    /// # }
+    /// ```
+    async fn register_mute(&self, mute: Mute) -> Result<Option<bool>, ProviderError> {
+       self.connection
+           .send::<Option<bool>>(mute.into()).await.map_err(|err| err.into())
     }
 
     /// Checks whether or not a user with the given username has been muted
@@ -230,6 +291,8 @@ impl<'a> Provider for Persistent<'a> {
     /// # }
     /// ```
     async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
+        diesel::
+    }
 }
 
 /// Manages mutes across redis, postgres, and the LRU cache.

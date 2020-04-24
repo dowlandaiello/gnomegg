@@ -19,3 +19,4 @@ dotenv = "0.15.0"
 diesel = { version = "1.4.4", features = ["mysql", "r2d2", "serde_json", "numeric", "chrono" ] }
 async-trait = "0.1.30"
 blake3 = "0.3.2"
+serde_json = "1.0.51"

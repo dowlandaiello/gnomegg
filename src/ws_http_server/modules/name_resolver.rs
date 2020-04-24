@@ -304,7 +304,6 @@ impl<'a> Hybrid<'a> {
     /// let cached_names = Cache::new(&conn);
     /// let persisted_names = Persistent::new(&conn);
     /// let all_names = Hybrid::new(cached_names, persisted_names);
-    ///
     /// # }
     /// ```
 
