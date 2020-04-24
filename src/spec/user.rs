@@ -28,7 +28,7 @@ pub struct User {
 /// NewUser represents a request to create a new user.
 #[derive(Insertable, Serialize, Deserialize)]
 #[table_name = "users"]
-pub struct NewUser<'a> {
+pub(crate) struct NewUser<'a> {
     /// The username of the user
     username: &'a str,
 

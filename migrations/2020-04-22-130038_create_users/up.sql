@@ -26,7 +26,7 @@ CREATE TABLE users (
 -- Users who have used reddit to connect to their accounts.
 CREATE TABLE reddit_connected (
 	-- The ID assigned by gnomegg to the user
-	id INT PRIMARY KEY,
+	user_id INT PRIMARY KEY,
 
 	-- The ID assigned by reddit to the user, encoded as a BLAKE3 hash in
 	-- base58
@@ -39,7 +39,7 @@ CREATE TABLE reddit_connected (
 -- Users who have used twitch to connect their accounts.
 CREATE TABLE twitch_connected (
 	-- The ID assigned by gnomegg to the user
-	id INT PRIMARY KEY,
+	user_id INT PRIMARY KEY,
 
 	-- The ID assigned by twitch to the user, encoded as a 32-byte BLAKE3
 	-- hash
@@ -52,7 +52,7 @@ CREATE TABLE twitch_connected (
 -- Users who have used twitter to connect their accounts.
 CREATE TABLE twitter_connected (
 	-- The ID assigned by gnomegg to the user
-	id INT PRIMARY KEY,
+	user_id INT PRIMARY KEY,
 
 	-- The ID assigned by twitter to the user, encoded as a 32-byte BLAKE3
 	-- hash
@@ -65,7 +65,7 @@ CREATE TABLE twitter_connected (
 -- Users who have used a google account to connect their accounts.
 CREATE TABLE google_connected (
 	-- The ID assigned by gnomegg to the user
-	id INT PRIMARY KEY,
+	user_id INT PRIMARY KEY,
 
 	-- The ID assigned by google to the user, encoded as a 32-byte BLAKE3
 	-- hash
@@ -78,7 +78,7 @@ CREATE TABLE google_connected (
 -- Users who have used a discord account to connect their accounts.
 CREATE TABLE discord_connected (
 	-- The ID assigned by gnomegg to the user
-	id INT PRIMARY KEY,
+	user_id INT PRIMARY KEY,
 
 	-- The ID assigned by discord to the user, encoded as a 32-byte BLAKE3
 	-- hash
@@ -91,7 +91,7 @@ CREATE TABLE discord_connected (
 -- Permissions for each user registered for gnome.gg
 CREATE TABLE roles (
 	-- The ID for the user whose roles should be noted
-	id INT PRIMARY KEY,
+	user_id INT PRIMARY KEY,
 
 	-- Whether or not this user is an administrator
 	administrator BOOLEAN,

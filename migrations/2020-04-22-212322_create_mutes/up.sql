@@ -1,7 +1,7 @@
 -- User who have been muted
 CREATE TABLE mutes (
        -- The ID of the gnomegg user who has been banned
-       id INT PRIMARY KEY,
+       user_id INT PRIMARY KEY,
 
        -- The number of nanoseconds that the mute is active for
        duration BIGINT NOT NULL,

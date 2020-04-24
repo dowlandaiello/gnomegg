@@ -1,38 +1,38 @@
 table! {
-    discord_connected (id) {
-        id -> Integer,
+    discord_connected (user_id) {
+        user_id -> Integer,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
 }
 
 table! {
-    google_connected (id) {
-        id -> Integer,
+    google_connected (user_id) {
+        user_id -> Integer,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
 }
 
 table! {
-    mutes (id) {
-        id -> Integer,
+    mutes (user_id) {
+        user_id -> Integer,
         duration -> Bigint,
-        initiated_at -> Timestamp,
+        initiated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
-    reddit_connected (id) {
-        id -> Integer,
+    reddit_connected (user_id) {
+        user_id -> Integer,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
 }
 
 table! {
-    roles (id) {
-        id -> Integer,
+    roles (user_id) {
+        user_id -> Integer,
         administrator -> Nullable<Bool>,
         moderator -> Nullable<Bool>,
         vip -> Nullable<Bool>,
@@ -43,16 +43,16 @@ table! {
 }
 
 table! {
-    twitch_connected (id) {
-        id -> Integer,
+    twitch_connected (user_id) {
+        user_id -> Integer,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
 }
 
 table! {
-    twitter_connected (id) {
-        id -> Integer,
+    twitter_connected (user_id) {
+        user_id -> Integer,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }

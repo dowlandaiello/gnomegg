@@ -3,6 +3,8 @@ use diesel::mysql::MysqlConnection;
 use redis_async::{client::paired::PairedConnection, error::Error};
 use std::fmt;
 
+use super::super::super::spec::mute::Mute;
+
 /// Provider represents an arbitrary backend for the mutes service that may or
 /// may not present an accurate or up to date view of the entire history of
 /// mutes. Providers should be used in conjunction unless otherwise specified.
@@ -149,14 +151,13 @@ impl<'a> Provider for Cache<'a> {
     /// ```
     async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
         self.connection
-            .send::<String>(resp_array![
+            .send::<Option<bool>>(resp_array![
                 "SET",
                 format!("muted::{}", username),
                 format!("{}", muted)
             ])
             .await
             .map_err(|err| err.into())
-            .map(|raw| raw.parse::<bool>().ok())
     }
 
     /// Checks whether or not a user with the given username has been muted
@@ -185,10 +186,9 @@ impl<'a> Provider for Cache<'a> {
     /// ```
     async fn is_muted(&self, username: &str) -> Result<Option<bool>, ProviderError> {
         self.connection
-            .send::<String>(resp_array!["GET", format!("muted::{}", username)])
+            .send::<Option<bool>>(resp_array!["GET", format!("muted::{}", username)])
             .await
             .map_err(|err| err.into())
-            .map(|raw| raw.parse::<bool>().ok())
     }
 }
 
@@ -229,7 +229,11 @@ impl<'a> Provider for Persistent<'a> {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {}
+    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
+        let entry = Mute{
+            user_id: 
+        };
+    }
 }
 
 /// Manages mutes across redis, postgres, and the LRU cache.
