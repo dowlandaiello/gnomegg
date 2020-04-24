@@ -1,9 +1,13 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use diesel::mysql::MysqlConnection;
 use redis_async::{client::paired::PairedConnection, error::Error};
 use std::fmt;
 
-use super::super::super::spec::{mute::Mute, schema::{ids, mutes}};
+use super::super::super::spec::{
+    mute::Mute,
+    schema::{ids, mutes},
+};
 
 /// Provider represents an arbitrary backend for the mutes service that may or
 /// may not present an accurate or up to date view of the entire history of
@@ -36,7 +40,12 @@ pub trait Provider {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, user_id: i32, muted: bool, duration: Option<u64>) -> Result<Option<bool>, ProviderError>;
+    async fn set_muted(
+        &self,
+        user_id: i32,
+        muted: bool,
+        duration: Option<u64>,
+    ) -> Result<Option<bool>, ProviderError>;
 
     /// Registers a gnomegg mute primitive in the active provider.
     ///
@@ -161,6 +170,8 @@ impl<'a> Provider for Cache<'a> {
     ///
     /// * `user_id` - The ID of the chatter who will be muted by this command
     /// * `muted` - Whether or not this user should be muted
+    /// * `duration` - (optional) The number of nanoseconds that the mute
+    /// should be active for (this does not apply for unmuting a user)
     ///
     /// # Example
     ///
@@ -179,17 +190,35 @@ impl<'a> Provider for Cache<'a> {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, user_id: i32, muted: bool) -> Result<Option<bool>, ProviderError> {
+    async fn set_muted(
+        &self,
+        user_id: i32,
+        muted: bool,
+        duration: u64,
+    ) -> Result<Option<bool>, ProviderError> {
+        if !muted {
+            self.connection
+                .send::<Option<bool>>
+        }
+
         self.connection
             .send::<Option<bool>>(resp_array![
                 "SET",
                 format!("muted::{}", user_id),
-                format!("{}", muted)
+                format!(
+                    "{}{}",
+                    muted,
+                    if muted {
+                        &format!("::{}@{}", duration, Utc::now())
+                    } else {
+                        ""
+                    }
+                )
             ])
             .await
             .map_err(|err| err.into())
     }
-    
+
     /// Registers a gnomegg mute primitive in the cache backend.
     ///
     /// # Arguments
@@ -217,8 +246,10 @@ impl<'a> Provider for Cache<'a> {
     /// # }
     /// ```
     async fn register_mute(&self, mute: Mute) -> Result<Option<bool>, ProviderError> {
-       self.connection
-           .send::<Option<bool>>(mute.into()).await.map_err(|err| err.into())
+        self.connection
+            .send::<Option<bool>>(mute.into())
+            .await
+            .map_err(|err| err.into())
     }
 
     /// Checks whether or not a user with the given username has been muted
@@ -290,9 +321,7 @@ impl<'a> Provider for Persistent<'a> {
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {
-        diesel::
-    }
+    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {}
 }
 
 /// Manages mutes across redis, postgres, and the LRU cache.

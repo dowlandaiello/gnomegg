@@ -1,8 +1,14 @@
 use super::schema::mutes;
 use super::user::User;
-use chrono::{DateTime, Utc, Duration};
-use redis_async::resp::RespValue;
+use chrono::{DateTime, Duration, Utc};
+use redis_async::{
+    error::Error as RedisError,
+    resp::{FromResp, RespValue},
+};
 use serde::{Deserialize, Serialize};
+use serde_json::Error as SerdeError;
+
+use std::convert::TryFrom;
 
 /// Mute represents a mute entry in the SQL database.
 #[derive(Identifiable, Queryable, Associations, Serialize, Deserialize, PartialEq, Debug)]
@@ -37,7 +43,7 @@ impl Mute {
         Self {
             user_id,
             duration,
-            initiated_at: Utc::now()
+            initiated_at: Utc::now(),
         }
     }
 
@@ -80,22 +86,35 @@ impl Mute {
 
     /// Determines whether or not the mute is active.
     pub fn active(&self) -> bool {
-        Utc::now() < self.initiated_at + Duration::nanoseconds(self.duration)
+        Utc::now()
+            < self.initiated_at + Duration::nanoseconds(self.duration.try_into().or_default())
     }
 }
 
-impl From<Mute> for RespValue {
-    fn from(m: Mute) -> Self {
-        resp_array![
-            "SET",
-            format!("muted::{}", m.user_id),
-            format!("")
-        ]
+impl TryFrom<Mute> for RespValue {
+    type Error = SerdeError;
+
+    fn try_from(m: Mute) -> Result<Self, SerdeError> {
+        serde_json::to_vec(&m).map(|raw_serialized| Self::BulkString(raw_serialized))
     }
 }
 
-impl From<String> for Mute {
-    fn from(s: String) -> Self {
-        serde_json::from_str(&s).unwrap_or_default()
+impl FromResp for Mute {
+    fn from_resp_int(resp: RespValue) -> Result<Self, RedisError> {
+        match resp {
+            RespValue::Nil => Err(RedisError::Internal("unexpected nil response".to_owned())),
+            RespValue::Array(_) => Err(RedisError::Internal(
+                "unexpected vector of unrecognized response value".to_owned(),
+            )),
+            RespValue::BulkString(arr) => serde_json::from_slice(&arr)
+                .map_err(|e| RedisError::RESP(e.to_string(), Some(resp))),
+            RespValue::Error(e) => Err(RedisError::Remote(e)),
+            RespValue::Integer(_) => Err(RedisError::Internal(
+                "unexpected integer response".to_owned(),
+            )),
+            RespValue::SimpleString(_) => Err(RedisError::Internal(
+                "unexpected string response".to_owned(),
+            )),
+        }
     }
 }
