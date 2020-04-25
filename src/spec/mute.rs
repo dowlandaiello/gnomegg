@@ -39,7 +39,7 @@ impl Default for Mute {
 impl Mute {
     /// Creates a new mute primitive, assuming the current time as the
     /// initiation timestamp.
-    pub fn new(&self, user_id: i32, duration: u64) -> Self {
+    pub fn new(user_id: i32, duration: u64) -> Self {
         Self {
             user_id,
             duration,
@@ -87,7 +87,18 @@ impl Mute {
     /// Determines whether or not the mute is active.
     pub fn active(&self) -> bool {
         Utc::now()
-            < self.initiated_at + Duration::nanoseconds(self.duration.try_into().or_default())
+            < self.initiated_at + Duration::nanoseconds(self.duration as i64)
+    }
+
+    /// Retreieves the ID pertaining to the use who will be muted.
+    pub fn concerns(&self) -> i32 {
+        self.user_id
+    }
+
+    /// Constructs a duration representing the timeframe that the mute will be
+    /// active for.
+    pub fn active_for(&self) -> Duration {
+       Duration::nanoseconds(self.duration as i64)
     }
 }
 
