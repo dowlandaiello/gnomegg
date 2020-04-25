@@ -1,9 +1,5 @@
-use async_trait::async_trait;
-use diesel::{
-    result::{Error as DieselError, QueryResult},
-    MysqlConnection, QueryDsl, RunQueryDsl,
-};
-use redis_async::{client::paired::PairedConnection, error::Error, resp::RespValue};
+use diesel::{result::Error as DieselError, MysqlConnection, QueryDsl, RunQueryDsl};
+use redis::{Connection, RedisError};
 
 use super::super::super::spec::{
     schema::{ids, users},
@@ -13,12 +9,12 @@ use super::super::super::spec::{
 /// ProviderError represents any error emitted by a name resolution provider.
 #[derive(Debug)]
 pub enum ProviderError {
-    RedisError(Error),
+    RedisError(RedisError),
     DieselError(DieselError),
 }
 
-impl From<Error> for ProviderError {
-    fn from(e: Error) -> Self {
+impl From<RedisError> for ProviderError {
+    fn from(e: RedisError) -> Self {
         Self::RedisError(e)
     }
 }
@@ -30,7 +26,6 @@ impl From<DieselError> for ProviderError {
 }
 
 /// Provider represents an arbitrary backend for the name resolution service.
-#[async_trait]
 pub trait Provider {
     /// Retreieves the user ID matching the provided username.
     ///
@@ -38,7 +33,7 @@ pub trait Provider {
     ///
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
-    async fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError>;
+    fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError>;
 
     /// Retreives the username matching the provided user ID.
     ///
@@ -46,7 +41,7 @@ pub trait Provider {
     ///
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
-    async fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError>;
+    fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError>;
 
     /// Stores a username to user ID / user ID to username mapping in a
     /// provider.
@@ -55,13 +50,13 @@ pub trait Provider {
     ///
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
-    async fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError>;
+    fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError>;
 }
 
 /// Cache implements a name resolver based on a locally or remotely-running
 /// redis instance.
 pub struct Cache<'a> {
-    connection: &'a PairedConnection,
+    connection: &'a mut Connection,
 }
 
 impl<'a> Cache<'a> {
@@ -88,12 +83,11 @@ impl<'a> Cache<'a> {
     /// let names = Cache::new(&conn).await.expect("a connection must be made to redis");
     /// # }
     /// ```
-    pub fn new(connection: &'a PairedConnection) -> Self {
+    pub fn new(connection: &'a mut Connection) -> Self {
         Self { connection }
     }
 }
 
-#[async_trait]
 impl<'a> Provider for Cache<'a> {
     /// Retreieves the user ID matching the provided username.
     ///
@@ -119,10 +113,10 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.user_id_for("MrMouton").await, None);
     /// # }
     /// ```
-    async fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError> {
-        self.connection
-            .send::<Option<i32>>(resp_array!["GET", username])
-            .await
+    fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError> {
+        redis::cmd("GET")
+            .arg(username)
+            .query(self.connection)
             .map_err(|e| e.into())
     }
 
@@ -150,10 +144,10 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.username_for("69420").await, None);
     /// # }
     /// ```
-    async fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError> {
-        self.connection
-            .send::<Option<String>>(resp_array!["GET", RespValue::Integer(user_id.into())])
-            .await
+    fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError> {
+        redis::cmd("GET")
+            .arg(user_id)
+            .query(self.connection)
             .map_err(|e| e.into())
     }
 
@@ -183,18 +177,11 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.username_for(69420).await, "MrMouton".to_owned());
     /// # }
     /// ```
-    async fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError> {
-        self.connection
-            .send::<()>(resp_array![
-                "PUT",
-                format!("name::{}", username),
-                RespValue::Integer(user_id.into())
-            ])
-            .await?;
-
-        self.connection
-            .send::<()>(resp_array!["PUT", format!("id::{}", user_id), username])
-            .await
+    fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError> {
+        redis::cmd("PUT")
+            .arg(username)
+            .arg(user_id)
+            .query(self.connection)
             .map_err(|e| e.into())
     }
 }
