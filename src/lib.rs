@@ -1,7 +1,4 @@
 #[macro_use]
-extern crate redis_async;
-
-#[macro_use]
 extern crate diesel;
 
 pub mod spec;

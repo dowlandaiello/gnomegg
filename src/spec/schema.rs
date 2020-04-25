@@ -1,6 +1,6 @@
 table! {
     discord_connected (user_id) {
-        user_id -> Integer,
+        user_id -> Unsigned<Bigint>,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
@@ -8,7 +8,7 @@ table! {
 
 table! {
     google_connected (user_id) {
-        user_id -> Integer,
+        user_id -> Unsigned<Bigint>,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
@@ -18,21 +18,21 @@ table! {
     ids (username) {
         id -> Unsigned<Bigint>,
         username -> Varchar,
-        user_id -> Nullable<Integer>,
+        user_id -> Unsigned<Bigint>,
     }
 }
 
 table! {
     mutes (user_id) {
-        user_id -> Integer,
+        user_id -> Unsigned<Bigint>,
         duration -> Bigint,
-        initiated_at -> Timestamp,
+        initiated_at -> Nullable<Timestamp>,
     }
 }
 
 table! {
     reddit_connected (user_id) {
-        user_id -> Integer,
+        user_id -> Unsigned<Bigint>,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
@@ -40,7 +40,7 @@ table! {
 
 table! {
     roles (user_id) {
-        user_id -> Integer,
+        user_id -> Unsigned<Bigint>,
         administrator -> Nullable<Bool>,
         moderator -> Nullable<Bool>,
         vip -> Nullable<Bool>,
@@ -52,7 +52,7 @@ table! {
 
 table! {
     twitch_connected (user_id) {
-        user_id -> Integer,
+        user_id -> Unsigned<Bigint>,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
@@ -60,7 +60,7 @@ table! {
 
 table! {
     twitter_connected (user_id) {
-        user_id -> Integer,
+        user_id -> Unsigned<Bigint>,
         id_hash -> Nullable<Binary>,
         id_value -> Nullable<Text>,
     }
