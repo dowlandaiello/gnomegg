@@ -29,15 +29,9 @@ impl From<DieselError> for ProviderError {
     }
 }
 
-impl<T> From<Result<T, Error>> for Result<T, ProviderError> {
-    fn from(r: Result<T, Error>) -> Self {
-        r.map_err(|raw_err| raw_err.into())
-    }
-}
-
-impl<T> From<QueryResult<T>> for Result<T, ProviderError> {
-    fn from(r: QueryResult<T>) -> Self {
-        r.map_err(|raw_err| raw_err.into())
+impl<Ok, Err: Into<ProviderError>> From<Result<Ok, Err>> for Result<Ok, ProviderError> {
+    fn from(r: Result<Ok, Err>) -> Self {
+       r.map_err(|e| e.into())
     }
 }
 

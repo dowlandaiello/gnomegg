@@ -1,8 +1,9 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use diesel::mysql::MysqlConnection;
-use redis_async::{client::paired::PairedConnection, error::Error};
-use std::fmt;
+use redis_async::{client::paired::PairedConnection, error::Error, resp::RespValue};
+use serde_json::Error as SerdeError;
+
+use std::{convert::TryInto, fmt};
 
 use super::super::super::spec::{
     mute::Mute,
@@ -75,6 +76,14 @@ pub trait Provider {
     /// ```
     async fn register_mute(&self, mute: Mute) -> Result<Option<bool>, ProviderError>;
 
+    /// Gets the mute primitive corresponding to the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The user ID for which a mute primitive should be found in
+    /// the caching database
+    async fn get_mute(&self, mute: Mute) -> Result<Option<Mute>, ProviderError>;
+
     /// Checks whether or not a user with the given username has been muted
     ///
     /// # Arguments
@@ -106,6 +115,8 @@ pub trait Provider {
 #[derive(Debug)]
 pub enum ProviderError {
     RedisError(Error),
+    SerdeError(SerdeError),
+    MissingArgument { arg: &'static str },
 }
 
 impl fmt::Display for ProviderError {
@@ -121,9 +132,29 @@ impl From<Error> for ProviderError {
     ///
     /// # Arguments
     ///
-    /// * `e` - The redis error that should be wrapper in the ProviderError
+    /// * `e` - The redis error that should be wrapped in the ProviderError
     fn from(e: Error) -> Self {
         Self::RedisError(e)
+    }
+}
+
+impl From<SerdeError> for ProviderError {
+    /// Constructs a provider error from the given serde error.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The serde error that should be wrapped in the ProviderError
+    fn from(e: SerdeError) -> Self {
+        Self::SerdeError(e)
+    }
+}
+
+impl<Ok, Err: Into<ProviderError>> From<Result<Ok, Err>> for Result<Ok, ProviderError> {
+    /// Constructs a result comprised by some type and a provider error from the
+    /// to-provider implementing result (Err must be a type that can be
+    /// converted to a ProviderError).
+    fn from(r: Result<Ok, Error>) -> Self {
+        r.map_err(|e| e.into())
     }
 }
 
@@ -194,29 +225,29 @@ impl<'a> Provider for Cache<'a> {
         &self,
         user_id: i32,
         muted: bool,
-        duration: u64,
-    ) -> Result<Option<bool>, ProviderError> {
+        duration: Option<u64>,
+    ) -> Result<Option<Mute>, ProviderError> {
+        // If we're unmuting a user, we simply need to remove the redis entry
         if !muted {
-            self.connection
-                .send::<Option<bool>>
+            return self
+                .connection
+                .send::<Option<Mute>>(resp_array!["DEL", format!("muted:{}", user_id)])
+                .await
+                .into();
         }
 
+        // Otherwise, insert a new mute into the redis database, and return any old entries
         self.connection
-            .send::<Option<bool>>(resp_array![
+            .send::<Option<Mute>>(resp_array![
                 "SET",
                 format!("muted::{}", user_id),
-                format!(
-                    "{}{}",
-                    muted,
-                    if muted {
-                        &format!("::{}@{}", duration, Utc::now())
-                    } else {
-                        ""
-                    }
-                )
+                <Mute as TryInto<RespValue>>::try_into(Mute::new(
+                    user_id,
+                    duration.ok_or(ProviderError::MissingArgument { arg: "duration" })?
+                ))?
             ])
             .await
-            .map_err(|err| err.into())
+            .into()
     }
 
     /// Registers a gnomegg mute primitive in the cache backend.
@@ -247,9 +278,26 @@ impl<'a> Provider for Cache<'a> {
     /// ```
     async fn register_mute(&self, mute: Mute) -> Result<Option<bool>, ProviderError> {
         self.connection
-            .send::<Option<bool>>(mute.into())
+            .send::<Option<bool>>(resp_array![
+                "SET",
+                format!("muted::{}", mute.concerns()),
+                <Mute as TryInto<RespValue>>::try_into(mute)?
+            ])
             .await
-            .map_err(|err| err.into())
+            .into()
+    }
+
+    /// Gets the mute primitive corresponding to the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The user ID for which a mute primitive should be found in
+    /// the caching database
+    async fn get_mute(&self, user_id: i32) -> Result<Option<Mute>, ProviderError> {
+        self.connection
+            .send::<Option<Mute>>(resp_array!["GET", format!("muted::{}", user_id)])
+            .await
+            .into()
     }
 
     /// Checks whether or not a user with the given username has been muted
@@ -276,11 +324,12 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
     /// # }
     /// ```
-    async fn is_muted(&self, username: &str) -> Result<Option<bool>, ProviderError> {
+    async fn is_muted(&self, username: &str) -> Result<bool, ProviderError> {
         self.connection
             .send::<Option<bool>>(resp_array!["GET", format!("muted::{}", username)])
             .await
-            .map_err(|err| err.into())
+            .map(|raw| raw.unwrap_or_default())
+            .into()
     }
 }
 
