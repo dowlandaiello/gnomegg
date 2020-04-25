@@ -1,9 +1,9 @@
-use diesel::{Insertable, dsl::Find};
+use super::schema::{ids, users};
+use diesel::Insertable;
 use serde::{Deserialize, Serialize};
-use super::schema::{users, ids};
 
 /// User represents a generic gnome.gg user.
-#[derive(Insertable, Identifiable, Serialize, Deserialize)]
+#[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Debug)]
 #[table_name = "users"]
 pub struct User {
     /// The user's unique identifier
@@ -26,7 +26,7 @@ pub struct User {
 }
 
 /// NewUser represents a request to create a new user.
-#[derive(Insertable, Serialize, Deserialize)]
+#[derive(Insertable, Serialize, Deserialize, PartialEq, Debug)]
 #[table_name = "users"]
 pub(crate) struct NewUser<'a> {
     /// The username of the user
@@ -42,7 +42,7 @@ pub(crate) struct NewUser<'a> {
     accepts_gifts: bool,
 
     /// The user's minecraft username
-    minecraft_name: &'a str
+    minecraft_name: &'a str,
 }
 
 /// IDs represents each ID attached to each user in the database.
@@ -68,7 +68,7 @@ pub(crate) struct NewIdMapping<'a> {
     username: &'a str,
 
     /// The user ID of the user
-    user_id: i32
+    user_id: i32,
 }
 
 /// OauthConnection represents a generic connection to an oauth provider for a
@@ -89,7 +89,7 @@ pub struct RedditConnection<'a> {
     value: &'a str,
 
     /// The hash associated with the user
-    hash: &'a [u8]
+    hash: &'a [u8],
 }
 
 impl<'a> OauthConnection for RedditConnection<'a> {
@@ -106,7 +106,7 @@ impl<'a> OauthConnection for RedditConnection<'a> {
     /// ```
     fn id(&self) -> &str {
         self.value
-    }    
+    }
 
     /// Retreives a hash of the identifier associated with the provider.
     ///

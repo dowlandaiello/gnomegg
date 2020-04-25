@@ -149,15 +149,6 @@ impl From<SerdeError> for ProviderError {
     }
 }
 
-impl<Ok, Err: Into<ProviderError>> From<Result<Ok, Err>> for Result<Ok, ProviderError> {
-    /// Constructs a result comprised by some type and a provider error from the
-    /// to-provider implementing result (Err must be a type that can be
-    /// converted to a ProviderError).
-    fn from(r: Result<Ok, Error>) -> Self {
-        r.map_err(|e| e.into())
-    }
-}
-
 /// Cache is a connection helper to a redis database running remotely or
 /// locally.
 pub struct Cache<'a> {
@@ -233,7 +224,7 @@ impl<'a> Provider for Cache<'a> {
                 .connection
                 .send::<Option<Mute>>(resp_array!["DEL", format!("muted:{}", user_id)])
                 .await
-                .into();
+                .map_err(|e| e.into());
         }
 
         // Otherwise, insert a new mute into the redis database, and return any old entries
@@ -247,7 +238,7 @@ impl<'a> Provider for Cache<'a> {
                 ))?
             ])
             .await
-            .into()
+            .map_err(|e| e.into())
     }
 
     /// Registers a gnomegg mute primitive in the cache backend.
@@ -284,7 +275,7 @@ impl<'a> Provider for Cache<'a> {
                 <Mute as TryInto<RespValue>>::try_into(mute)?
             ])
             .await
-            .into()
+            .map_err(|e| e.into())
     }
 
     /// Gets the mute primitive corresponding to the given user ID.
@@ -297,7 +288,7 @@ impl<'a> Provider for Cache<'a> {
         self.connection
             .send::<Option<Mute>>(resp_array!["GET", format!("muted::{}", user_id)])
             .await
-            .into()
+            .map_err(|e| e.into())
     }
 
     /// Checks whether or not a user with the given username has been muted
@@ -329,7 +320,7 @@ impl<'a> Provider for Cache<'a> {
             .send::<Option<bool>>(resp_array!["GET", format!("muted::{}", username)])
             .await
             .map(|raw| raw.unwrap_or_default())
-            .into()
+            .map_err(|e| e.into())
     }
 }
 
@@ -347,30 +338,48 @@ impl<'a> Persistent<'a> {
 
 #[async_trait]
 impl<'a> Provider for Persistent<'a> {
-    /// Sets a user's muted status in the redis caching layer.
+    /// Sets a user's muted status in the active provider.
     ///
     /// # Arguments
     ///
-    /// * `username` - The username of the chatter who will be muted by this command
+    /// * `user_id` - The ID of the chatter who will be muted by this command
     /// * `muted` - Whether or not this user should be muted
+    /// * `duration` - (optional) The number of nanoseconds that the mute
+    /// should be active for (this does not apply for unmuting a user)
     ///
     /// # Example
     ///
     /// ```
     /// # #[macro_use]
     /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Persistent, Provider};
+    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
     /// # use std::error::Error;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let addr = "mysql://localhost:3306/gnomegg";
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
     ///
-    /// let mutes = Persistent::new(&addr).await.expect("a connection must be made to mariadb");
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
     /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    async fn set_muted(&self, username: &str, muted: bool) -> Result<Option<bool>, ProviderError> {}
+    fn set_muted(
+        &self,
+        user_id: i32,
+        muted: bool,
+        duration: Option<u64>,
+    ) -> Result<Option<bool>, ProviderError> {
+        // If the user is being unmuted, we simply need to delete the row
+        // corresponding to the user's mute in the database
+        if !muted {
+            return diesel::delete(mutes::dsl::mutes.find(user_id))
+                .execute(self.connection)
+                .into();
+        }
+
+        diesel::insert_into(mutes::table).values(&Mute::new())
+    }
 }
 
 /// Manages mutes across redis, postgres, and the LRU cache.

@@ -29,12 +29,6 @@ impl From<DieselError> for ProviderError {
     }
 }
 
-impl<Ok, Err: Into<ProviderError>> From<Result<Ok, Err>> for Result<Ok, ProviderError> {
-    fn from(r: Result<Ok, Err>) -> Self {
-       r.map_err(|e| e.into())
-    }
-}
-
 /// Provider represents an arbitrary backend for the name resolution service.
 #[async_trait]
 pub trait Provider {
@@ -129,7 +123,7 @@ impl<'a> Provider for Cache<'a> {
         self.connection
             .send::<Option<i32>>(resp_array!["GET", username])
             .await
-            .into()
+            .map_err(|e| e.into())
     }
 
     /// Retreives the username matching the provided user ID.
@@ -160,7 +154,7 @@ impl<'a> Provider for Cache<'a> {
         self.connection
             .send::<Option<String>>(resp_array!["GET", RespValue::Integer(user_id.into())])
             .await
-            .into()
+            .map_err(|e| e.into())
     }
 
     /// Stores a username to user ID / user ID to username mapping in a
@@ -201,7 +195,7 @@ impl<'a> Provider for Cache<'a> {
         self.connection
             .send::<()>(resp_array!["PUT", format!("id::{}", user_id), username])
             .await
-            .into()
+            .map_err(|e| e.into())
     }
 }
 
@@ -235,7 +229,7 @@ impl<'a> Provider for Persistent<'a> {
             .find(username)
             .select(ids::dsl::user_id)
             .first(self.connection)
-            .into()
+            .map_err(|e| e.into())
     }
 
     /// Retreives the username matching the provided user ID.
@@ -249,7 +243,7 @@ impl<'a> Provider for Persistent<'a> {
             .find(user_id)
             .select(users::dsl::username)
             .first(self.connection)
-            .into()
+            .map_err(|e| e.into())
     }
 
     /// Stores a username to user ID / user ID to username mapping in a
