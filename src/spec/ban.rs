@@ -147,13 +147,13 @@ impl<'a> NewBan<'a> {
     pub fn new(
         user_id: u64,
         duration: Option<u64>,
-        initiated_at: NaiveDateTime,
+        initiated_at: DateTime<Utc>,
         ip: Option<&'a str>,
     ) -> Self {
         Self {
             user_id,
             duration,
-            initiated_at,
+            initiated_at: initiated_at.naive_utc(),
             ip,
         }
     }
