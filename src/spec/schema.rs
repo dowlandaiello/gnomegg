@@ -25,8 +25,8 @@ table! {
 table! {
     mutes (user_id) {
         user_id -> Unsigned<Bigint>,
-        duration -> Bigint,
-        initiated_at -> Nullable<Timestamp>,
+        duration -> Unsigned<Bigint>,
+        initiated_at -> Timestamp,
     }
 }
 

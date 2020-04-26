@@ -36,7 +36,7 @@ pub trait Provider {
     ///
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
-    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError>;
+    fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError>;
 
     /// Retreives the username matching the provided user ID.
     ///
@@ -44,7 +44,7 @@ pub trait Provider {
     ///
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
-    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError>;
+    fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError>;
 
     /// Stores a username to user ID / user ID to username mapping in a
     /// provider.
@@ -53,7 +53,7 @@ pub trait Provider {
     ///
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
-    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError>;
+    fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError>;
 }
 
 /// Cache implements a name resolver based on a locally or remotely-running
@@ -116,7 +116,7 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.user_id_for("MrMouton").await, None);
     /// # }
     /// ```
-    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError> {
+    fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
         redis::cmd("GET")
             .arg(username)
             .query(self.connection)
@@ -147,7 +147,7 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.username_for("69420").await, None);
     /// # }
     /// ```
-    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError> {
+    fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
         redis::cmd("GET")
             .arg(user_id)
             .query(self.connection)
@@ -180,7 +180,7 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.username_for(69420).await, "MrMouton".to_owned());
     /// # }
     /// ```
-    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError> {
+    fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError> {
         redis::cmd("PUT")
             .arg(username)
             .arg(user_id)
@@ -214,7 +214,7 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
-    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError> {
+    fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
         ids::dsl::ids
             .find(username)
             .select(ids::dsl::user_id)
@@ -238,7 +238,7 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
-    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError> {
+    fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
         users::dsl::users
             .find(user_id)
             .select(users::dsl::username)
@@ -253,7 +253,7 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
-    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError> {
+    fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError> {
         // The user must exist in order to set a mapping between them. As such,
         // we want to update existing user entries before adding or updating
         // secondary mappings
@@ -262,10 +262,10 @@ impl<'a> Provider for Persistent<'a> {
             .execute(self.connection)?;
 
         diesel::insert_into(ids::dsl::ids)
-            .values(&NewIdMapping {
-                username: username,
+            .values(&NewIdMapping::new(
+                username,
                 user_id,
-            })
+            ))
             .execute(self.connection)
             .map(|_| ())
             .map_err(|e| e.into())
@@ -286,6 +286,11 @@ impl<'a> Hybrid<'a> {
     /// Creates a new hybrid name resolution service with the provided
     /// persistent and cached helper layers.
     ///
+    /// # Arguments
+    ///
+    /// * `cache` - The redis caching helper to use
+    /// * `persistent` - The MySQL storage helper to use
+    ///
     /// # Example
     ///
     /// ```
@@ -304,8 +309,7 @@ impl<'a> Hybrid<'a> {
     /// let all_names = Hybrid::new(cached_names, persisted_names);
     /// # }
     /// ```
-
-    fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
+    pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
         Self { cache, persistent }
     }
 }
@@ -317,7 +321,7 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
-    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError> {
+    fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
         self.cache
             .user_id_for(username)
             .or(self.persistent.user_id_for(username))
@@ -329,7 +333,7 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
-    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError> {
+    fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
         self.cache
             .username_for(user_id)
             .or(self.persistent.username_for(user_id))
@@ -342,7 +346,7 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
-    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError> {
+    fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError> {
         self.cache
             .set_combination(username, user_id)
             .and(self.persistent.set_combination(username, user_id))

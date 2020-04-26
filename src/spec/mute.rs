@@ -1,20 +1,18 @@
 use super::schema::mutes;
 use super::user::User;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use redis::{FromRedisValue, RedisError, Value};
 use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeError;
 
-use std::{
-    io::{Error as IoError, ErrorKind},
-};
+use std::io::{Error as IoError, ErrorKind};
 
 /// Mute represents a mute entry in the SQL database.
-#[derive(Identifiable, Queryable, Associations, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Identifiable, Insertable, Queryable, Associations, Serialize, Deserialize, PartialEq, Debug)]
 #[belongs_to(User)]
 #[table_name = "mutes"]
 #[primary_key(user_id)]
-pub(crate) struct Mute {
+pub struct Mute {
     /// The ID of the user corresponding to this mute
     user_id: u64,
 
@@ -22,7 +20,7 @@ pub(crate) struct Mute {
     duration: u64,
 
     /// The time at which this mute was issued
-    initiated_at: DateTime<Utc>,
+    initiated_at: NaiveDateTime,
 }
 
 impl Default for Mute {
@@ -30,7 +28,7 @@ impl Default for Mute {
         Self {
             user_id: 0,
             duration: 0,
-            initiated_at: Utc::now(),
+            initiated_at: Utc::now().naive_utc(),
         }
     }
 }
@@ -42,7 +40,7 @@ impl Mute {
         Self {
             user_id,
             duration,
-            initiated_at: Utc::now(),
+            initiated_at: Utc::now().naive_utc(),
         }
     }
 
@@ -78,14 +76,14 @@ impl Mute {
     ///
     /// * `initiated_at` - The time at which the mute was issued
     pub fn with_initiation_timestamp(mut self, initiated_at: DateTime<Utc>) -> Self {
-        self.initiated_at = initiated_at;
+        self.initiated_at = initiated_at.naive_utc();
 
         self
     }
 
     /// Determines whether or not the mute is active.
     pub fn active(&self) -> bool {
-        Utc::now() < self.initiated_at + Duration::nanoseconds(self.duration as i64)
+        Utc::now().naive_utc() < self.initiated_at + Duration::nanoseconds(self.duration as i64)
     }
 
     /// Retreieves the ID pertaining to the use who will be muted.

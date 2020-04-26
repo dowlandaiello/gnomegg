@@ -1,6 +1,5 @@
-use chrono::{DateTime, Utc};
+use chrono::{Utc, naive::NaiveDateTime, DateTime};
 use serde::{Serialize, Deserialize};
-use diesel::Insertable;
 
 /// Message is a message sent as text, rendered on the client.
 #[derive(Serialize, Deserialize)]
@@ -378,7 +377,7 @@ impl Subonly {
 #[derive(Serialize, Deserialize)]
 pub struct Ping {
     /// The time at which the ping request was initiated by the user
-    initiation_timestamp: DateTime<Utc>,
+    initiation_timestamp: NaiveDateTime,
 }
 
 impl Default for Ping {
@@ -409,7 +408,7 @@ impl Ping {
     /// ```
     pub fn new() -> Self {
         Self {
-            initiation_timestamp: Utc::now(),
+            initiation_timestamp: Utc::now().naive_utc(),
         }
     }
 
@@ -431,7 +430,7 @@ impl Ping {
     /// ```
     pub fn new_with_initiation_timestamp(initiation_timestamp: DateTime<Utc>) -> Self {
         Self {
-            initiation_timestamp,
+            initiation_timestamp: initiation_timestamp.naive_utc(),
         }
     }
 
@@ -445,7 +444,7 @@ impl Ping {
     /// let ping_request = Ping::new();
     /// ping_request.started_at(); // => Utc::now()
     /// ```
-    pub fn started_at(&self) -> DateTime<Utc> {
+    pub fn started_at(&self) -> NaiveDateTime {
         self.initiation_timestamp
     }
 }

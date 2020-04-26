@@ -4,8 +4,8 @@ CREATE TABLE mutes (
        user_id BIGINT UNSIGNED NOT NULL UNIQUE PRIMARY KEY,
 
        -- The number of nanoseconds that the mute is active for
-       duration BIGINT NOT NULL,
+       duration BIGINT UNSIGNED NOT NULL,
 
        -- The time at which the mute was issued
-       initiated_at TIMESTAMP
+       initiated_at TIMESTAMP NOT NULL
 );

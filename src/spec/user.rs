@@ -71,6 +71,21 @@ pub(crate) struct NewIdMapping<'a> {
     user_id: u64,
 }
 
+impl<'a> NewIdMapping<'a> {
+    /// Creates a new username <-> id mapping.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username that should be mapped to the ID
+    /// * `user_id` - The ID to which the username should be mapped
+    pub fn new(username: &'a str, user_id: u64) -> Self {
+        Self {
+            username,
+            user_id
+        }
+    }
+}
+
 /// OauthConnection represents a generic connection to an oauth provider for a
 /// gnomegg user.
 pub trait OauthConnection {

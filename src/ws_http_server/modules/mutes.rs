@@ -501,10 +501,12 @@ impl<'a> Hybrid<'a> {
     ///
     /// * `cache` - The redis caching helper to use
     /// * `persistent` - The MySQL storage helper to use
-    fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
+    pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
         Self { cache, persistent }
     }
+}
 
+impl<'a> Provider for Hybrid<'a> {
     /// Sets a user's muted status in the active provider.
     ///
     /// # Arguments
