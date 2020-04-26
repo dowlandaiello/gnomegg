@@ -1,4 +1,7 @@
-use diesel::{result::Error as DieselError, MysqlConnection, QueryDsl, RunQueryDsl};
+use diesel::{
+    expression_methods::ExpressionMethods, result::Error as DieselError, MysqlConnection, QueryDsl,
+    RunQueryDsl,
+};
 use redis::{Connection, RedisError};
 
 use super::super::super::spec::{
@@ -217,7 +220,16 @@ impl<'a> Provider for Persistent<'a> {
             .select(ids::dsl::user_id)
             .first(self.connection)
             .map(|ok| Some(ok))
-            .map_err(|e| e.into())
+            .or_else(|e| {
+                // If we haven't immediately gotten a result from diesel, we can
+                // check if no mute exists for the user, which would be
+                // described as an error, but returned as None
+                if let DieselError::NotFound = e {
+                    Ok(None)
+                } else {
+                    Err(e.into())
+                }
+            })
     }
 
     /// Retreives the username matching the provided user ID.
@@ -226,7 +238,7 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
-    fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError> {
+    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError> {
         users::dsl::users
             .find(user_id)
             .select(users::dsl::username)
@@ -241,12 +253,22 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
-    fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError> {
-        diesel::update(users::dsl::users.find(user_id)).set(users::dsl::username.eq(username))?;
-        diesel::insert_into(users::dsl::users).values(&NewIdMapping {
-            username: username,
-            user_id,
-        })
+    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError> {
+        // The user must exist in order to set a mapping between them. As such,
+        // we want to update existing user entries before adding or updating
+        // secondary mappings
+        diesel::update(users::dsl::users.find(user_id))
+            .set(users::dsl::username.eq(username))
+            .execute(self.connection)?;
+
+        diesel::insert_into(ids::dsl::ids)
+            .values(&NewIdMapping {
+                username: username,
+                user_id,
+            })
+            .execute(self.connection)
+            .map(|_| ())
+            .map_err(|e| e.into())
     }
 }
 
@@ -295,7 +317,7 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
-    fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError> {
+    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError> {
         self.cache
             .user_id_for(username)
             .or(self.persistent.user_id_for(username))
@@ -307,7 +329,7 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
-    fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError> {
+    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError> {
         self.cache
             .username_for(user_id)
             .or(self.persistent.username_for(user_id))
@@ -320,7 +342,7 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
-    fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError> {
+    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError> {
         self.cache
             .set_combination(username, user_id)
             .and(self.persistent.set_combination(username, user_id))
