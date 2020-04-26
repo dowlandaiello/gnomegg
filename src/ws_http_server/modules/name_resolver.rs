@@ -33,7 +33,7 @@ pub trait Provider {
     ///
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
-    fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError>;
+    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError>;
 
     /// Retreives the username matching the provided user ID.
     ///
@@ -41,7 +41,7 @@ pub trait Provider {
     ///
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
-    fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError>;
+    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError>;
 
     /// Stores a username to user ID / user ID to username mapping in a
     /// provider.
@@ -50,7 +50,7 @@ pub trait Provider {
     ///
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
-    fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError>;
+    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError>;
 }
 
 /// Cache implements a name resolver based on a locally or remotely-running
@@ -113,7 +113,7 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.user_id_for("MrMouton").await, None);
     /// # }
     /// ```
-    fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError> {
+    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError> {
         redis::cmd("GET")
             .arg(username)
             .query(self.connection)
@@ -144,7 +144,7 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.username_for("69420").await, None);
     /// # }
     /// ```
-    fn username_for(&self, user_id: i32) -> Result<Option<String>, ProviderError> {
+    fn username_for(&self, user_id: u64) -> Result<Option<String>, ProviderError> {
         redis::cmd("GET")
             .arg(user_id)
             .query(self.connection)
@@ -177,7 +177,7 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(names.username_for(69420).await, "MrMouton".to_owned());
     /// # }
     /// ```
-    fn set_combination(&self, username: &str, user_id: i32) -> Result<(), ProviderError> {
+    fn set_combination(&self, username: &str, user_id: u64) -> Result<(), ProviderError> {
         redis::cmd("PUT")
             .arg(username)
             .arg(user_id)
@@ -211,11 +211,12 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
-    fn user_id_for(&self, username: &str) -> Result<Option<i32>, ProviderError> {
+    fn user_id_for(&self, username: &str) -> Result<Option<u64>, ProviderError> {
         ids::dsl::ids
             .find(username)
             .select(ids::dsl::user_id)
             .first(self.connection)
+            .map(|ok| Some(ok))
             .map_err(|e| e.into())
     }
 

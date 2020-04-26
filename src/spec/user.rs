@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[table_name = "users"]
 pub struct User {
     /// The user's unique identifier
-    id: i32,
+    id: u64,
 
     /// The username of the user
     username: String,
@@ -51,13 +51,13 @@ pub(crate) struct NewUser<'a> {
 #[table_name = "ids"]
 pub struct IdMapping {
     /// The nonce of the username => id mapping
-    id: i32,
+    id: u64,
 
     /// The username of the user
     username: String,
 
     /// The user ID of the user
-    user_id: i32,
+    user_id: u64,
 }
 
 /// NewIDMapping represents a new entry mapping a username to a user ID.
@@ -68,7 +68,7 @@ pub(crate) struct NewIdMapping<'a> {
     username: &'a str,
 
     /// The user ID of the user
-    user_id: i32,
+    user_id: u64,
 }
 
 /// OauthConnection represents a generic connection to an oauth provider for a

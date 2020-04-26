@@ -16,7 +16,7 @@ use std::{
 #[primary_key(user_id)]
 pub(crate) struct Mute {
     /// The ID of the user corresponding to this mute
-    user_id: i32,
+    user_id: u64,
 
     /// The number of nanoseconds that this mute will be in effect for
     duration: u64,
@@ -38,7 +38,7 @@ impl Default for Mute {
 impl Mute {
     /// Creates a new mute primitive, assuming the current time as the
     /// initiation timestamp.
-    pub fn new(user_id: i32, duration: u64) -> Self {
+    pub fn new(user_id: u64, duration: u64) -> Self {
         Self {
             user_id,
             duration,
@@ -52,7 +52,7 @@ impl Mute {
     /// # Arguments
     ///
     /// * `user_id` - The user ID that should be associated with this mute
-    pub fn with_user_id(mut self, user_id: i32) -> Self {
+    pub fn with_user_id(mut self, user_id: u64) -> Self {
         self.user_id = user_id;
 
         self
@@ -89,7 +89,7 @@ impl Mute {
     }
 
     /// Retreieves the ID pertaining to the use who will be muted.
-    pub fn concerns(&self) -> i32 {
+    pub fn concerns(&self) -> u64 {
         self.user_id
     }
 
