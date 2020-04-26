@@ -235,10 +235,13 @@ impl<'a> Provider for Cache<'a> {
     ) -> Result<bool, ProviderError> {
         // If we're unmuting a user, we simply need to remove the redis entry
         if !muted {
+            let already_muted = self.is_muted(user_id)?;
+
             return redis::cmd("DEL")
                 .arg(format!("muted::{}", user_id))
                 .query(self.connection)
-                .map_err(|e| e.into());
+                .map_err(|e| e.into())
+                .map(|_| already_muted.active().unwrap_or_default());
         }
 
         // Otherwise, insert a new mute into the redis database, and return any old entries

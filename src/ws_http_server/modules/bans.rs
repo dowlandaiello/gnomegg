@@ -1,0 +1,658 @@
+use chrono::{DateTime, Utc};
+use diesel::{mysql::MysqlConnection, result::Error as DieselError, QueryDsl, RunQueryDsl};
+use redis::{Connection, RedisError};
+use serde_json::Error as SerdeError;
+
+use std::fmt;
+
+use super::super::super::spec::{
+    ban::{Ban, NewBan},
+    schema::bans,
+};
+
+/// BanQuery represents a query for a ban based on its IP or corresponding user
+/// ID.
+enum BanQuery<'a> {
+    Address(&'a str),
+    Id(u64),
+}
+
+/// Provider represents an arbitrary backend for the bans service that may or
+/// may not present an accurate or up to date view of the entire history of
+/// bans. Providers should be used in conjunction unless otherwise specified.
+pub trait Provider {
+    /// Sets a user's banned status in the active provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the chatter who will be banned by this command
+    /// * `banned` - Whether or not this user should be banned
+    /// * `duration` - (optional) The number of nanoseconds that the ban
+    /// should be active for (this does not apply for unmuting a user)
+    /// * `ip` - (optional) The IP of the user that should be registered as
+    /// banned
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache, Provider};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn set_banned(
+        &mut self,
+        user_id: u64,
+        banned: bool,
+        duration: Option<u64>,
+        ip: Option<&str>,
+    ) -> Result<bool, ProviderError>;
+
+    /// Registers a gnomegg ban primitive in the active provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `ban` - The ban primitive that should be used to modify the bans
+    /// state
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::{ws_http_server::modules::bans::{Config, Cache, Provider}, spec::ban::Ban};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let ban = Ban::new(0, 1024);
+    ///
+    /// bans.register_ban(ban).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn register_ban<'a>(&mut self, ban: &'a NewBan) -> Result<Option<Ban>, ProviderError>;
+
+    /// Gets the ban primitive corresponding to the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError>;
+
+    /// Checks whether or not a user with the given username or address has been
+    /// banned.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache, Provider};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
+    /// # }
+    /// ```
+    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError>;
+}
+
+/// ProviderError represents any error emitted by a ban backend.
+#[derive(Debug)]
+pub enum ProviderError {
+    RedisError(RedisError),
+    SerdeError(SerdeError),
+    DieselError(DieselError),
+    MissingArgument { arg: &'static str },
+}
+
+impl fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RedisError(err) => write!(f, "the provider encountered a redis error: {}", err),
+            Self::SerdeError(err) => {
+                write!(f, "the provider encountered a serialization error: {}", err)
+            }
+            Self::DieselError(err) => {
+                write!(f, "the provider encountered a database error: {}", err)
+            }
+            Self::MissingArgument { arg } => {
+                write!(f, "malformed query; missing argument: {}", arg)
+            }
+        }
+    }
+}
+
+impl From<RedisError> for ProviderError {
+    /// Constructs a provider error from the given redis error.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The redis error that should be wrapped in the ProviderError
+    fn from(e: RedisError) -> Self {
+        Self::RedisError(e)
+    }
+}
+
+impl From<SerdeError> for ProviderError {
+    /// Constructs a provider error from the given serde error.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The serde error that should be wrapped in the ProviderError
+    fn from(e: SerdeError) -> Self {
+        Self::SerdeError(e)
+    }
+}
+
+impl From<DieselError> for ProviderError {
+    /// Cosntructs a provider error from the given diesel error.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - The diesel error that should be wrapped in the ProviderError
+    fn from(e: DieselError) -> Self {
+        Self::DieselError(e)
+    }
+}
+
+/// Cache is a connection helper to a redis database running remotely or
+/// locally.
+pub struct Cache<'a> {
+    connection: &'a mut Connection,
+}
+
+impl<'a> Cache<'a> {
+    /// Creates a new cache connection with the given remote database address.
+    ///
+    /// # Arguments
+    ///
+    /// * `database_address` - The address corresponding to the remote redis
+    /// session, formatted as such: 127.0.0.1:6379
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let cfg = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// # }
+    /// ```
+    pub fn new(connection: &'a mut Connection) -> Self {
+        Self { connection }
+    }
+}
+
+impl<'a> Provider for Cache<'a> {
+    /// Sets a user's banned status in the redis caching layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the chatter who will be banned by this command
+    /// * `banned` - Whether or not this user should be banned
+    /// * `duration` - (optional) The number of nanoseconds that the ban
+    /// should be active for (this does not apply for unmuting a user)
+    /// * `ip` - (optional) The IP of the user that should be banned
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn set_banned(
+        &mut self,
+        user_id: u64,
+        banned: bool,
+        duration: Option<u64>,
+        ip: Option<&str>,
+    ) -> Result<bool, ProviderError> {
+        // If we're unmuting a user, we simply need to remove the redis entry
+        if !banned {
+            if let Some(addr) = ip {
+                redis::cmd("DEL")
+                    .arg(format!("banned_addr::{}", ip))
+                    .query(self.connection)
+                    .map_err(|e| e.into())?;
+            }
+
+            return redis::cmd("DEL")
+                .arg(format!("banned::{}", user_id))
+                .query(self.connection)
+                .map_err(|e| e.into());
+        }
+
+        // Otherwise, insert a new ban into the redis database, and return any old entries
+        Ok(self
+            .register_ban(&NewBan::new(user_id, duration, Utc::now(), ip))?
+            .map_or(false, |ban| ban.active()))
+    }
+
+    /// Registers a gnomegg ban primitive in the cache backend.
+    ///
+    /// # Arguments
+    ///
+    /// * `ban` - The ban primitive that should be used to modify the bans
+    /// state
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::{ws_http_server::modules::bans::{Config, Cache, Provider}, spec::ban::Ban};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let ban = Ban::new(0, 1024);
+    ///
+    /// bans.register_ban(ban).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn register_ban(&mut self, ban: &NewBan) -> Result<Option<Ban>, ProviderError> {
+        if let Some(addr) = ban.address() {
+            redis::cmd("SET")
+                .arg(format!("banned_addr::{}", addr))
+                .arg(serde_json::to_vec(ban)?)
+                .execute(self.connection)?;
+        }
+
+        redis::cmd("SET")
+            .arg(format!("banned::{}", ban.concerns()))
+            .arg(serde_json::to_vec(ban)?)
+            .query::<Option<Vec<u8>>>(self.connection)
+            .map_err(|e| e.into())
+            .map(|raw| {
+                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(|raw| Some(raw)))?
+                    .unwrap_or(None)
+            })
+    }
+
+    /// Gets the ban primitive corresponding to the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError> {
+        redis::cmd("GET")
+            .arg(match query {
+                BanQuery::Address(s) => format!("banned_addr::{}", s),
+                BanQuery::Id(id) => format!("banned::{}", id),
+            })
+            .query::<Option<Vec<u8>>>(self.connection)
+            .map_err(|e| e.into())
+            .map(|raw| {
+                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(|raw| Some(raw)))?
+                    .unwrap_or(None)
+            })
+    }
+
+    /// Checks whether or not a user with the given username has been banned
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
+    /// # }
+    /// ```
+    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError> {
+        Ok(self.get_ban(query)?.map_or(false, |ban| ban.active()))
+    }
+}
+
+/// Persistent is a mysql-based persistence layer for the gnomegg bans backend.
+pub struct Persistent<'a> {
+    connection: &'a MysqlConnection,
+}
+
+impl<'a> Persistent<'a> {
+    /// Creates a new connection to the mysql backend, and provides
+    pub fn new(connection: &'a MysqlConnection) -> Self {
+        Self { connection }
+    }
+}
+
+impl<'a> Provider for Persistent<'a> {
+    /// Sets a user's banned status in the redis caching layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the chatter who will be banned by this command
+    /// * `banned` - Whether or not this user should be banned
+    /// * `duration` - (optional) The number of nanoseconds that the ban
+    /// should be active for (this does not apply for unmuting a user)
+    /// * `ip` - (optional) The IP of the user that should be banned
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn set_banned(
+        &mut self,
+        user_id: u64,
+        banned: bool,
+        duration: Option<u64>,
+        ip: Option<&str>,
+    ) -> Result<bool, ProviderError> {
+        let old = self.get_ban(user_id)?;
+
+        // If the user is being unbanned, we simply need to delete the row
+        // corresponding to the user's ban in the database
+        if !banned {
+            return diesel::delete(bans::dsl::bans.find(user_id))
+                .execute(self.connection)
+                .map(|_| old.map_or(false, |ban| ban.active()))
+                .map_err(|e| e.into());
+        }
+
+        // Otherwise, insert a new ban entry
+        Ok(self
+            .register_ban(&NewBan::new(user_id, duration, Utc::now(), ip))?
+            .map_or(false, |ban| ban.active()))
+    }
+
+    /// Registers a gnomegg ban primitive in the cache backend.
+    ///
+    /// # Arguments
+    ///
+    /// * `ban` - The ban primitive that should be used to modify the bans
+    /// state
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::{ws_http_server::modules::bans::{Config, Cache, Provider}, spec::ban::Ban};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let ban = Ban::new(0, 1024);
+    ///
+    /// bans.register_ban(ban).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn register_ban(&mut self, ban: &NewBan) -> Result<Option<Ban>, ProviderError> {
+        let old = self.get_ban(ban.concerns())?;
+
+        diesel::insert_into(bans::table)
+            .values(ban)
+            .execute(self.connection)?;
+
+        Ok(old)
+    }
+
+    /// Gets the ban primitive corresponding to the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError> {
+        let ban = match query {
+            BanQuery::Id(id) => bans::dsl::bans.find(id),
+            BanQuery::Address(address) => bans::dsl::bans.filter(bans::dsl::ip.eq(address)),
+        };
+
+        ban.first::<Ban>(self.connection)
+            .map(|ok| Some(ok))
+            .or_else(|e| {
+                if let DieselError::NotFound = e {
+                    Ok(None)
+                } else {
+                    Err(<DieselError as Into<ProviderError>>::into(e))
+                }
+            })
+    }
+
+    /// Checks whether or not a user with the given username has been banned
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache, Provider};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
+    /// # }
+    /// ```
+    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError> {
+        Ok(self.get_ban(query)?.map_or(false, |ban| ban.active()))
+    }
+}
+
+/// Hybrid manages bans across redis and MySQL.
+pub struct Hybrid<'a> {
+    /// The cached bans storage layer
+    cache: Cache<'a>,
+
+    /// The persistent bans storage layer
+    persistent: Persistent<'a>,
+}
+
+impl<'a> Hybrid<'a> {
+    /// Creates a new hybrid bans storage service with the provided persistent
+    /// and cached bans helper layers.
+    ///
+    /// # Arguments
+    ///
+    /// * `cache` - The redis caching helper to use
+    /// * `persistent` - The MySQL storage helper to use
+    pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
+        Self { cache, persistent }
+    }
+}
+
+impl<'a> Provider for Hybrid<'a> {
+    /// Sets a user's banned status in the active provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the chatter who will be banned by this command
+    /// * `banned` - Whether or not this user should be banned
+    /// * `duration` - (optional) The number of nanoseconds that the ban
+    /// should be active for (this does not apply for unmuting a user)
+    /// * `ip` - (optional) The IP of the user that should be registered as
+    /// banned
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache, Provider};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn set_banned(
+        &mut self,
+        user_id: u64,
+        banned: bool,
+        duration: Option<u64>,
+        ip: Option<&str>,
+    ) -> Result<bool, ProviderError> {
+        self.cache
+            .set_banned(user_id, banned, duration)
+            .and(self.persistent.set_banned(user_id, banned, duration))
+    }
+
+    /// Registers a gnomegg ban primitive in the active provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `ban` - The ban primitive that should be used to modify the bans
+    /// state
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::{ws_http_server::modules::bans::{Config, Cache, Provider}, spec::ban::Ban};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let ban = Ban::new(0, 1024);
+    ///
+    /// bans.register_ban(ban).await.expect("harkdan should be banned");
+    /// # }
+    /// ```
+    fn register_ban(&mut self, ban: &NewBan) -> Result<Option<Ban>, ProviderError> {
+        self.cache
+            .register_ban(ban)
+            .and(self.persistent.register_ban(ban))
+    }
+
+    /// Gets the ban primitive corresponding to the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError> {
+        self.cache.get_ban(query).or(self.persistent.get_ban(query))
+    }
+
+    /// Checks whether or not a user with the given username has been banned
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - A query containing an IP address or a user ID that should be
+    /// searched for in the database
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache, Provider};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
+    /// # }
+    /// ```
+    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError> {
+        self.cache
+            .is_banned(query)
+            .or(self.persistent.is_banned(user_id))
+    }
+}

@@ -1,5 +1,4 @@
-use super::schema::mutes;
-use super::user::User;
+use super::{schema::mutes, user::User};
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use redis::{FromRedisValue, RedisError, Value};
 use serde::{Deserialize, Serialize};
@@ -56,7 +55,7 @@ impl Mute {
         self
     }
 
-    /// Creats a new mute primitive based off the current mute instance, with
+    /// Creates a new mute primitive based off the current mute instance, with
     /// the provided duration (in nanoseconds).
     ///
     /// # Arguments
