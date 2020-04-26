@@ -1,4 +1,13 @@
 table! {
+    bans (user_id) {
+        user_id -> Unsigned<Bigint>,
+        duration -> Nullable<Unsigned<Bigint>>,
+        initiated_at -> Timestamp,
+        ip -> Nullable<Text>,
+    }
+}
+
+table! {
     discord_connected (user_id) {
         user_id -> Unsigned<Bigint>,
         id_hash -> Nullable<Binary>,
@@ -78,6 +87,7 @@ table! {
 }
 
 allow_tables_to_appear_in_same_query!(
+    bans,
     discord_connected,
     google_connected,
     ids,
