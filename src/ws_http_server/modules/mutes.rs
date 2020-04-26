@@ -69,7 +69,7 @@ pub trait Provider {
     /// mutes.register_mute(mute).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    fn register_mute(&mut self, mute: Mute) -> Result<Option<Mute>, ProviderError>;
+    fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError>;
 
     /// Gets the mute primitive corresponding to the given user ID.
     ///
@@ -243,7 +243,7 @@ impl<'a> Provider for Cache<'a> {
 
         // Otherwise, insert a new mute into the redis database, and return any old entries
         Ok(self
-            .register_mute(Mute::new(
+            .register_mute(&Mute::new(
                 user_id,
                 duration.ok_or(ProviderError::MissingArgument { arg: "duration" })?,
             ))?
@@ -276,10 +276,10 @@ impl<'a> Provider for Cache<'a> {
     /// mutes.register_mute(mute).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    fn register_mute(&mut self, mute: Mute) -> Result<Option<Mute>, ProviderError> {
+    fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
         redis::cmd("SET")
             .arg(format!("muted::{}", mute.concerns()))
-            .arg(serde_json::to_vec(&mute)?)
+            .arg(serde_json::to_vec(mute)?)
             .query::<Option<Vec<u8>>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
@@ -392,7 +392,7 @@ impl<'a> Provider for Persistent<'a> {
 
         // Otherwise, insert a new mute entry
         Ok(self
-            .register_mute(Mute::new(
+            .register_mute(&Mute::new(
                 user_id,
                 duration.ok_or(ProviderError::MissingArgument { arg: "duration" })?,
             ))?
@@ -425,7 +425,7 @@ impl<'a> Provider for Persistent<'a> {
     /// mutes.register_mute(mute).await.expect("harkdan should be muted");
     /// # }
     /// ```
-    fn register_mute(&mut self, mute: Mute) -> Result<Option<Mute>, ProviderError> {
+    fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
         let old = self.get_mute(mute.concerns())?;
 
         diesel::insert_into(mutes::table)
@@ -484,7 +484,135 @@ impl<'a> Provider for Persistent<'a> {
     }
 }
 
-/// Manages mutes across redis, postgres, and the LRU cache.
-pub struct Manager<'a> {
-    cache_conn: Cache<'a>,
+/// Hybrid manages mutes across redis and MySQL.
+pub struct Hybrid<'a> {
+    /// The cached mutes storage layer
+    cache: Cache<'a>,
+
+    /// The persistent mutes storage layer
+    persistent: Persistent<'a>,
+}
+
+impl<'a> Hybrid<'a> {
+    /// Creates a new hybrid mutes storage service with the provided persistent
+    /// and cached mutes helper layers.
+    ///
+    /// # Arguments
+    ///
+    /// * `cache` - The redis caching helper to use
+    /// * `persistent` - The MySQL storage helper to use
+    fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
+        Self { cache, persistent }
+    }
+
+    /// Sets a user's muted status in the active provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the chatter who will be muted by this command
+    /// * `muted` - Whether or not this user should be muted
+    /// * `duration` - (optional) The number of nanoseconds that the mute
+    /// should be active for (this does not apply for unmuting a user)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
+    /// # }
+    /// ```
+    fn set_muted(
+        &mut self,
+        user_id: u64,
+        muted: bool,
+        duration: Option<u64>,
+    ) -> Result<bool, ProviderError> {
+        self.cache
+            .set_muted(user_id, muted, duration)
+            .and(self.persistent.set_muted(user_id, muted, duration))
+    }
+
+    /// Registers a gnomegg mute primitive in the active provider.
+    ///
+    /// # Arguments
+    ///
+    /// * `mute` - The mute primitive that should be used to modify the mutes
+    /// state
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::{ws_http_server::modules::mutes::{Config, Cache, Provider}, spec::mute::Mute};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let mute = Mute::new(0, 1024);
+    ///
+    /// mutes.register_mute(mute).await.expect("harkdan should be muted");
+    /// # }
+    /// ```
+    fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
+        self.cache
+            .register_mute(mute)
+            .and(self.persistent.register_mute(mute))
+    }
+
+    /// Gets the mute primitive corresponding to the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The user ID for which a mute primitive should be found in
+    /// the caching database
+    fn get_mute(&mut self, user_id: u64) -> Result<Option<Mute>, ProviderError> {
+        self.cache
+            .get_mute(user_id)
+            .or(self.persistent.get_mute(user_id))
+    }
+
+    /// Checks whether or not a user with the given username has been muted
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID for which the "muted" value should be fetched
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use]
+    /// # extern crate tokio;
+    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// # use std::error::Error;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
+    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    ///
+    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
+    /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
+    /// # }
+    /// ```
+    fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError> {
+        self.cache
+            .is_muted(user_id)
+            .or(self.persistent.is_muted(user_id))
+    }
 }
