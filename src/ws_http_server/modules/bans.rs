@@ -1,5 +1,7 @@
-use chrono::{DateTime, Utc};
-use diesel::{mysql::MysqlConnection, result::Error as DieselError, QueryDsl, RunQueryDsl};
+use chrono::Utc;
+use diesel::{
+    mysql::MysqlConnection, result::Error as DieselError, ExpressionMethods, QueryDsl, RunQueryDsl,
+};
 use redis::{Connection, RedisError};
 use serde_json::Error as SerdeError;
 
@@ -12,7 +14,7 @@ use super::super::super::spec::{
 
 /// BanQuery represents a query for a ban based on its IP or corresponding user
 /// ID.
-enum BanQuery<'a> {
+pub enum BanQuery<'a> {
     Address(&'a str),
     Id(u64),
 }
@@ -91,7 +93,7 @@ pub trait Provider {
     ///
     /// * `query` - A query containing an IP address or a user ID that should be
     /// searched for in the database
-    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError>;
+    fn get_ban(&mut self, query: &BanQuery) -> Result<Option<Ban>, ProviderError>;
 
     /// Checks whether or not a user with the given username or address has been
     /// banned.
@@ -119,7 +121,7 @@ pub trait Provider {
     /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
     /// # }
     /// ```
-    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError>;
+    fn is_banned(&mut self, query: &BanQuery) -> Result<bool, ProviderError>;
 }
 
 /// ProviderError represents any error emitted by a ban backend.
@@ -255,9 +257,9 @@ impl<'a> Provider for Cache<'a> {
         if !banned {
             if let Some(addr) = ip {
                 redis::cmd("DEL")
-                    .arg(format!("banned_addr::{}", ip))
+                    .arg(format!("banned_addr::{}", addr))
                     .query(self.connection)
-                    .map_err(|e| e.into())?;
+                    .map_err(|e| <RedisError as Into<ProviderError>>::into(e))?;
             }
 
             return redis::cmd("DEL")
@@ -303,7 +305,7 @@ impl<'a> Provider for Cache<'a> {
             redis::cmd("SET")
                 .arg(format!("banned_addr::{}", addr))
                 .arg(serde_json::to_vec(ban)?)
-                .execute(self.connection)?;
+                .query::<()>(self.connection)?;
         }
 
         redis::cmd("SET")
@@ -323,7 +325,7 @@ impl<'a> Provider for Cache<'a> {
     ///
     /// * `query` - A query containing an IP address or a user ID that should be
     /// searched for in the database
-    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError> {
+    fn get_ban(&mut self, query: &BanQuery) -> Result<Option<Ban>, ProviderError> {
         redis::cmd("GET")
             .arg(match query {
                 BanQuery::Address(s) => format!("banned_addr::{}", s),
@@ -362,7 +364,7 @@ impl<'a> Provider for Cache<'a> {
     /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
     /// # }
     /// ```
-    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError> {
+    fn is_banned(&mut self, query: &BanQuery) -> Result<bool, ProviderError> {
         Ok(self.get_ban(query)?.map_or(false, |ban| ban.active()))
     }
 }
@@ -414,7 +416,7 @@ impl<'a> Provider for Persistent<'a> {
         duration: Option<u64>,
         ip: Option<&str>,
     ) -> Result<bool, ProviderError> {
-        let old = self.get_ban(user_id)?;
+        let old = self.get_ban(&BanQuery::Id(user_id))?;
 
         // If the user is being unbanned, we simply need to delete the row
         // corresponding to the user's ban in the database
@@ -458,7 +460,7 @@ impl<'a> Provider for Persistent<'a> {
     /// # }
     /// ```
     fn register_ban(&mut self, ban: &NewBan) -> Result<Option<Ban>, ProviderError> {
-        let old = self.get_ban(ban.concerns())?;
+        let old = self.get_ban(&BanQuery::Id(ban.concerns()))?;
 
         diesel::insert_into(bans::table)
             .values(ban)
@@ -473,21 +475,21 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `query` - A query containing an IP address or a user ID that should be
     /// searched for in the database
-    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError> {
+    fn get_ban(&mut self, query: &BanQuery) -> Result<Option<Ban>, ProviderError> {
         let ban = match query {
-            BanQuery::Id(id) => bans::dsl::bans.find(id),
-            BanQuery::Address(address) => bans::dsl::bans.filter(bans::dsl::ip.eq(address)),
+            BanQuery::Id(id) => bans::dsl::bans.find(id).first::<Ban>(self.connection),
+            BanQuery::Address(address) => bans::dsl::bans
+                .filter(bans::dsl::ip.eq(address))
+                .first::<Ban>(self.connection),
         };
 
-        ban.first::<Ban>(self.connection)
-            .map(|ok| Some(ok))
-            .or_else(|e| {
-                if let DieselError::NotFound = e {
-                    Ok(None)
-                } else {
-                    Err(<DieselError as Into<ProviderError>>::into(e))
-                }
-            })
+        ban.map(|ok| Some(ok)).or_else(|e| {
+            if let DieselError::NotFound = e {
+                Ok(None)
+            } else {
+                Err(<DieselError as Into<ProviderError>>::into(e))
+            }
+        })
     }
 
     /// Checks whether or not a user with the given username has been banned
@@ -515,7 +517,7 @@ impl<'a> Provider for Persistent<'a> {
     /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
     /// # }
     /// ```
-    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError> {
+    fn is_banned(&mut self, query: &BanQuery) -> Result<bool, ProviderError> {
         Ok(self.get_ban(query)?.map_or(false, |ban| ban.active()))
     }
 }
@@ -579,8 +581,8 @@ impl<'a> Provider for Hybrid<'a> {
         ip: Option<&str>,
     ) -> Result<bool, ProviderError> {
         self.cache
-            .set_banned(user_id, banned, duration)
-            .and(self.persistent.set_banned(user_id, banned, duration))
+            .set_banned(user_id, banned, duration, ip)
+            .and(self.persistent.set_banned(user_id, banned, duration, ip))
     }
 
     /// Registers a gnomegg ban primitive in the active provider.
@@ -621,7 +623,7 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `query` - A query containing an IP address or a user ID that should be
     /// searched for in the database
-    fn get_ban(&mut self, query: BanQuery) -> Result<Option<Ban>, ProviderError> {
+    fn get_ban(&mut self, query: &BanQuery) -> Result<Option<Ban>, ProviderError> {
         self.cache.get_ban(query).or(self.persistent.get_ban(query))
     }
 
@@ -650,9 +652,9 @@ impl<'a> Provider for Hybrid<'a> {
     /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
     /// # }
     /// ```
-    fn is_banned(&mut self, query: BanQuery) -> Result<bool, ProviderError> {
+    fn is_banned(&mut self, query: &BanQuery) -> Result<bool, ProviderError> {
         self.cache
             .is_banned(query)
-            .or(self.persistent.is_banned(user_id))
+            .or(self.persistent.is_banned(query))
     }
 }

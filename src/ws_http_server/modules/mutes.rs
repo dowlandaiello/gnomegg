@@ -237,11 +237,12 @@ impl<'a> Provider for Cache<'a> {
         if !muted {
             let already_muted = self.is_muted(user_id)?;
 
-            return redis::cmd("DEL")
+            redis::cmd("DEL")
                 .arg(format!("muted::{}", user_id))
                 .query(self.connection)
-                .map_err(|e| e.into())
-                .map(|_| already_muted.active().unwrap_or_default());
+                .map_err(|e| <RedisError as Into<ProviderError>>::into(e))?;
+
+            return Ok(already_muted);
         }
 
         // Otherwise, insert a new mute into the redis database, and return any old entries
