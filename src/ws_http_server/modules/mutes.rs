@@ -240,7 +240,7 @@ impl<'a> Provider for Cache<'a> {
             redis::cmd("DEL")
                 .arg(format!("muted::{}", user_id))
                 .query(self.connection)
-                .map_err(|e| <RedisError as Into<ProviderError>>::into(e))?;
+                .map_err(<RedisError as Into<ProviderError>>::into)?;
 
             return Ok(already_muted);
         }
@@ -287,7 +287,7 @@ impl<'a> Provider for Cache<'a> {
             .query::<Option<Vec<u8>>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Mute>(&bytes).map(|raw| Some(raw)))?
+                raw.map(|bytes| serde_json::from_slice::<Mute>(&bytes).map(Some))?
                     .unwrap_or(None)
             })
     }
@@ -304,7 +304,7 @@ impl<'a> Provider for Cache<'a> {
             .query::<Option<Vec<u8>>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Mute>(&bytes).map(|raw| Some(raw)))?
+                raw.map(|bytes| serde_json::from_slice::<Mute>(&bytes).map(Some))?
                     .unwrap_or(None)
             })
     }
@@ -449,7 +449,7 @@ impl<'a> Provider for Persistent<'a> {
         mutes::dsl::mutes
             .find(user_id)
             .first::<Mute>(self.connection)
-            .map(|ok| Some(ok))
+            .map(Some)
             .or_else(|e| {
                 if let DieselError::NotFound = e {
                     Ok(None)
@@ -589,7 +589,7 @@ impl<'a> Provider for Hybrid<'a> {
     fn get_mute(&mut self, user_id: u64) -> Result<Option<Mute>, ProviderError> {
         self.cache
             .get_mute(user_id)
-            .or(self.persistent.get_mute(user_id))
+            .or_else(|_| self.persistent.get_mute(user_id))
     }
 
     /// Checks whether or not a user with the given username has been muted
@@ -619,6 +619,6 @@ impl<'a> Provider for Hybrid<'a> {
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError> {
         self.cache
             .is_muted(user_id)
-            .or(self.persistent.is_muted(user_id))
+            .or_else(|_| self.persistent.is_muted(user_id))
     }
 }

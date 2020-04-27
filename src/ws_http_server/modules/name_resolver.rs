@@ -219,7 +219,7 @@ impl<'a> Provider for Persistent<'a> {
             .find(username)
             .select(ids::dsl::user_id)
             .first(self.connection)
-            .map(|ok| Some(ok))
+            .map(Some)
             .or_else(|e| {
                 // If we haven't immediately gotten a result from diesel, we can
                 // check if no mute exists for the user, which would be
@@ -324,7 +324,7 @@ impl<'a> Provider for Hybrid<'a> {
     fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
         self.cache
             .user_id_for(username)
-            .or(self.persistent.user_id_for(username))
+            .or_else(|_| self.persistent.user_id_for(username))
     }
 
     /// Retreives the username matching the provided user ID.
@@ -336,7 +336,7 @@ impl<'a> Provider for Hybrid<'a> {
     fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
         self.cache
             .username_for(user_id)
-            .or(self.persistent.username_for(user_id))
+            .or_else(|_| self.persistent.username_for(user_id))
     }
 
     /// Stores a username to user ID / user ID to username mapping in a

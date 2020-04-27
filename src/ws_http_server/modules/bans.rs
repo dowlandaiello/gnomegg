@@ -259,7 +259,7 @@ impl<'a> Provider for Cache<'a> {
                 redis::cmd("DEL")
                     .arg(format!("banned_addr::{}", addr))
                     .query(self.connection)
-                    .map_err(|e| <RedisError as Into<ProviderError>>::into(e))?;
+                    .map_err(<RedisError as Into<ProviderError>>::into)?;
             }
 
             return redis::cmd("DEL")
@@ -314,7 +314,7 @@ impl<'a> Provider for Cache<'a> {
             .query::<Option<Vec<u8>>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(|raw| Some(raw)))?
+                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(Some))?
                     .unwrap_or(None)
             })
     }
@@ -334,7 +334,7 @@ impl<'a> Provider for Cache<'a> {
             .query::<Option<Vec<u8>>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(|raw| Some(raw)))?
+                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(Some))?
                     .unwrap_or(None)
             })
     }
@@ -483,7 +483,7 @@ impl<'a> Provider for Persistent<'a> {
                 .first::<Ban>(self.connection),
         };
 
-        ban.map(|ok| Some(ok)).or_else(|e| {
+        ban.map(Some).or_else(|e| {
             if let DieselError::NotFound = e {
                 Ok(None)
             } else {
@@ -624,7 +624,7 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `query` - A query containing an IP address or a user ID that should be
     /// searched for in the database
     fn get_ban(&mut self, query: &BanQuery) -> Result<Option<Ban>, ProviderError> {
-        self.cache.get_ban(query).or(self.persistent.get_ban(query))
+        self.cache.get_ban(query).or_else(|_| self.persistent.get_ban(query))
     }
 
     /// Checks whether or not a user with the given username has been banned
@@ -655,6 +655,6 @@ impl<'a> Provider for Hybrid<'a> {
     fn is_banned(&mut self, query: &BanQuery) -> Result<bool, ProviderError> {
         self.cache
             .is_banned(query)
-            .or(self.persistent.is_banned(query))
+            .or_else(|_| self.persistent.is_banned(query))
     }
 }
