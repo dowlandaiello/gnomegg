@@ -106,15 +106,15 @@ impl<'a> PrivMessage<'a> {
 
 /// Mute is a command issued to mute a particular user.
 #[derive(Serialize, Deserialize)]
-pub struct Mute {
+pub struct Mute<'a> {
     /// The user that will be muted by this command
-    concerns: String,
+    concerns: &'a str,
 
     /// The number of nanoseconds until the user will be unmuted
     duration: u64,
 }
 
-impl Mute {
+impl<'a> Mute<'a> {
     /// Creates a new mute command.
     ///
     /// # Example
@@ -123,14 +123,14 @@ impl Mute {
     /// use gnomegg::spec::event::Mute;
     ///
     /// // Mute essaywriter for 666 nanoseconds for posting pepe cringe
-    /// let mute = Mute::new("essaywriter".to_owned(), 666);
+    /// let mute = Mute::new("essaywriter", 666);
     /// ```
     ///
     /// # Arguments
     ///
     /// * `user` - The username of the user who will be muted by this command
     /// * `duration` - The number of nanoseconds until the user will be unmuted
-    pub fn new(user: String, duration: u64) -> Self {
+    pub fn new(user: &'a str, duration: u64) -> Self {
         Self {
             concerns: user,
             duration,
@@ -168,12 +168,12 @@ impl Mute {
 
 /// Unmute is a command used to unmute a particular chatter.
 #[derive(Serialize, Deserialize)]
-pub struct Unmute {
+pub struct Unmute<'a> {
     /// The username of the user who will be unmuted by this command
-    concerns: String,
+    concerns: &'a str,
 }
 
-impl Unmute {
+impl<'a> Unmute<'a> {
     /// Creates a new unmute command.
     ///
     /// # Arguments
@@ -188,7 +188,7 @@ impl Unmute {
     /// // Reformed AngelThump
     /// let unmute = Unmute::new("essaywriter".to_owned());
     /// ```
-    pub fn new(user: String) -> Self {
+    pub fn new(user: &'a str) -> Self {
         Self { concerns: user }
     }
 
@@ -209,18 +209,18 @@ impl Unmute {
 
 /// Ban is a command that bans a cringeposter.
 #[derive(Serialize, Deserialize)]
-pub struct Ban {
+pub struct Ban<'a> {
     /// The user that was banned
-    concerns: String,
+    concerns: &'a str,
 
     /// Why the user was banned
-    reasoning: String,
+    reasoning: &'a str,
 
     /// The number of nanoseconds that the user will be banned for
     timeframe: u64,
 }
 
-impl Ban {
+impl<'a> Ban<'a> {
     /// Creates a new ban command.
     ///
     /// # Arguments
@@ -235,9 +235,9 @@ impl Ban {
     /// ```
     /// use gnomegg::spec::event::Ban;
     ///
-    /// let ban = Ban::new("RightToBearArmsLOL".to_owned(), "failing to falsify the Christian god".to_owned(), 1024);
+    /// let ban = Ban::new("RightToBearArmsLOL", "failing to falsify the Christian god", 1024);
     /// ```
-    pub fn new(user: String, reason: String, duration: u64) -> Self {
+    pub fn new(user: &'a str, reason: &'a str, duration: u64) -> Self {
         Self {
             concerns: user,
             reasoning: reason,
@@ -252,7 +252,7 @@ impl Ban {
     /// ```
     /// use gnomegg::spec::event::Ban;
     ///
-    /// let ban = Ban::new("RightToBearArmsLOL".to_owned(), "failing to falsify the Christian god".to_owned(), 1024);
+    /// let ban = Ban::new("RightToBearArmsLOL", "failing to falsify the Christian god", 1024);
     /// ban.user(); // => "RightToBearArmsLOL"
     /// ```
     pub fn user(&self) -> &str {
@@ -290,12 +290,12 @@ impl Ban {
 
 /// Unban is a command used to unban a chatter.
 #[derive(Serialize, Deserialize)]
-pub struct Unban {
+pub struct Unban<'a> {
     /// The user who will be banned by this command
-    concerns: String,
+    concerns: &'a str,
 }
 
-impl Unban {
+impl<'a> Unban<'a> {
     /// Creates a new unban command.
     ///
     /// # Arguments
@@ -310,7 +310,7 @@ impl Unban {
     /// // Pepega Clap
     /// let unban = Unban::new("essaywriter".to_owned());
     /// ```
-    pub fn new(user: String) -> Self {
+    pub fn new(user: &'a str) -> Self {
         Self { concerns: user }
     }
 
@@ -529,7 +529,7 @@ impl<'a> Broadcast<'a> {
     /// ```
     /// use gnomegg::spec::event::Broadcast;
     ///
-    /// let broadcasted_msg = Broadcast::new("MrMouton".to_owned(), "I am a living meme holy shit. Hacked by a 7 year old.".to_owned());
+    /// let broadcasted_msg = Broadcast::new("MrMouton", "I am a living meme holy shit. Hacked by a 7 year old.");
     /// ```
     pub fn new(sender: &'a str, message: &'a str) -> Self {
         Self {
@@ -545,7 +545,7 @@ impl<'a> Broadcast<'a> {
     /// ```
     /// use gnomegg::spec::event::Broadcast;
     ///
-    /// let broadcasted_msg = Broadcast::new("MrMouton".to_owned(), "I am a living meme holy shit. Hacked by a 7 year old.".to_owned());
+    /// let broadcasted_msg = Broadcast::new("MrMouton", "I am a living meme holy shit. Hacked by a 7 year old.");
     /// broadcasted_msg.sent_by(); // => "MrMouton"
     /// ```
     pub fn sent_by(&self) -> &str {
@@ -559,7 +559,7 @@ impl<'a> Broadcast<'a> {
     /// ```
     /// use gnomegg::spec::event::Broadcast;
     ///
-    /// let broadcasted_msg = Broadcast::new("MrMouton".to_owned(), "I am a living meme holy shit. Hacked by a 7 year old.".to_owned());
+    /// let broadcasted_msg = Broadcast::new("MrMouton", "I am a living meme holy shit. Hacked by a 7 year old.");
     /// broadcasted_msg.msg(); // => "I am a living meme holy shit. Hacked by a 7 year old."
     /// ```
     pub fn msg(&self) -> &str {
@@ -570,15 +570,15 @@ impl<'a> Broadcast<'a> {
 /// Error is an event representing a failure response from the server to a set
 /// of clients.
 #[derive(Serialize, Deserialize)]
-pub struct Error {
+pub struct Error<'a> {
     /// The users that this error will be communicated to
-    concerns: EventTarget,
+    concerns: EventTarget<'a>,
 
     /// The error that will be sent to each user
-    error: String,
+    error: &'a str,
 }
 
-impl Error {
+impl<'a> Error<'a> {
     /// Creates a new error with the given target and error message.
     ///
     /// # Arguments
@@ -593,7 +593,7 @@ impl Error {
     ///
     /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord".to_owned());
     /// ```
-    pub fn new(target: EventTarget, error: String) -> Self {
+    pub fn new(target: EventTarget<'a>, error: &'a str) -> Self {
         Self {
             concerns: target,
             error,
@@ -640,16 +640,16 @@ pub enum CommandKind<'a> {
     PrivMessage(PrivMessage<'a>),
 
     /// This command mutes a user
-    Mute(Mute),
+    Mute(Mute<'a>),
 
     /// This command unmutes a user
-    Unmute(Unmute),
+    Unmute(Unmute<'a>),
 
     /// This command bans a user
-    Ban(Ban),
+    Ban(Ban<'a>),
 
     /// This command unbans a user
-    Unban(Unban),
+    Unban(Unban<'a>),
 
     /// This command makes the chat sub-only mode
     Subonly(Subonly),
@@ -663,7 +663,7 @@ pub enum CommandKind<'a> {
 #[derive(Serialize, Deserialize)]
 pub struct Command<'a> {
     /// The issuer of the command
-    issuer: String,
+    issuer: &'a str,
 
     /// The type of command being issued
     #[serde(borrow)]
@@ -683,11 +683,11 @@ impl<'a> Command<'a> {
     /// ```
     /// use gnomegg::spec::event::{CommandKind, Command, Message};
     ///
-    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let msg = Message::new("Hi nathanPepe dadd");
     /// let cmd_type = CommandKind::Message(msg);
-    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// let cmd = Command::new("MrMouton", cmd_type);
     /// ```
-    pub fn new(issuer: String, cmd: CommandKind<'a>) -> Self {
+    pub fn new(issuer: &'a str, cmd: CommandKind<'a>) -> Self {
         Self { issuer, kind: cmd }
     }
 
@@ -698,9 +698,9 @@ impl<'a> Command<'a> {
     /// ```
     /// use gnomegg::spec::event::{CommandKind, Command, Message};
     ///
-    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let msg = Message::new("Hi nathanPepe dadd");
     /// let cmd_type = CommandKind::Message(msg);
-    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// let cmd = Command::new("MrMouton", cmd_type);
     ///
     /// cmd.command_type(); // => CommandKind::Message
     /// ```
@@ -715,9 +715,9 @@ impl<'a> Command<'a> {
     /// ```
     /// use gnomegg::spec::event::{CommandKind, Command, Message};
     ///
-    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let msg = Message::new("Hi nathanPepe dadd");
     /// let cmd_type = CommandKind::Message(msg);
-    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// let cmd = Command::new("MrMouton", cmd_type);
     ///
     /// cmd.command_type(); // => CommandKind::Message
     /// ```
@@ -729,12 +729,12 @@ impl<'a> Command<'a> {
 /// EventTarget is a permissioning utility for events emitted by the server or a
 /// client. Events will only be communicated to the specified target group.
 #[derive(Serialize, Deserialize)]
-pub enum EventTarget {
+pub enum EventTarget<'a> {
     /// This event targets all active chatters
     All,
 
     /// This event targets a specific user
-    User(String),
+    User(&'a str),
 
     /// This event is hidden, and will only be seen by the server
     Server,
@@ -761,7 +761,7 @@ pub enum EventKind<'a> {
 #[derive(Serialize, Deserialize)]
 pub struct Event<'a> {
     /// Users affected by this event
-    concerns: EventTarget,
+    concerns: EventTarget<'a>,
 
     /// The kind of event being emitted
     #[serde(borrow)]
@@ -782,12 +782,12 @@ impl<'a> Event<'a> {
     /// ```
     /// use gnomegg::spec::event::{CommandKind, Command, Message, Event, EventTarget, EventKind};
     ///
-    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let msg = Message::new("Hi nathanPepe dadd");
     /// let cmd_type = CommandKind::Message(msg);
-    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
+    /// let cmd = Command::new("MrMouton", cmd_type);
     /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
     /// ```
-    pub fn new(target: EventTarget, underlying_event: EventKind<'a>) -> Self {
+    pub fn new(target: EventTarget<'a>, underlying_event: EventKind<'a>) -> Self {
         Self {
             concerns: target,
             kind: underlying_event,
@@ -818,10 +818,10 @@ impl<'a> Event<'a> {
     /// ```
     /// use gnomegg::spec::event::{CommandKind, Command, Message, Event, EventTarget, EventKind};
     ///
-    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let msg = Message::new("Hi nathanPepe dadd");
     /// let cmd_type = CommandKind::Message(msg);
-    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
-    /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
+    /// let cmd = Command::new("MrMouton", cmd_type);
+    /// let event = Event::new(EventTarget::User("Destiny"), EventKind::IssueCommand(cmd));
     /// event.targets(); // => EventTarget::User("Destiny")
     /// ```
     pub fn event_kind(&self) -> &EventKind {

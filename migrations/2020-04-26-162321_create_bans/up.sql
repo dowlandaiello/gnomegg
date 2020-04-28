@@ -9,5 +9,5 @@ CREATE TABLE bans (
        initiated_at TIMESTAMP NOT NULL,
 
        -- (Optional) the IP of the user being banned
-       ip TEXT KEY
+       ip TEXT 
 );
