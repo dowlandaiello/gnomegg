@@ -66,7 +66,7 @@ impl<'a> PrivMessage<'a> {
     /// ```
     /// use gnomegg::spec::event::PrivMessage;
     ///
-    /// let msg = PrivMessage::new("essaywriter".to_owned(), "I have information concerning the murder of Jeffrey Epstein.".to_owned());
+    /// let msg = PrivMessage::new("essaywriter", "I have information concerning the murder of Jeffrey Epstein.");
     /// ```
     pub fn new(to: &'a str, contents: &'a str) -> Self {
         Self {
@@ -82,7 +82,7 @@ impl<'a> PrivMessage<'a> {
     /// ```
     /// use gnomegg::spec::event::PrivMessage;
     ///
-    /// let msg = PrivMessage::new("essaywriter".to_owned(), "I have information concerning the murder of Jeffrey Epstein.".to_owned());
+    /// let msg = PrivMessage::new("essaywriter", "I have information concerning the murder of Jeffrey Epstein.");
     /// msg.to(); // => "essaywriter"
     /// ```
     pub fn to(&self) -> &str {
@@ -96,7 +96,7 @@ impl<'a> PrivMessage<'a> {
     /// ```
     /// use gnomegg::spec::event::PrivMessage;
     ///
-    /// let msg = PrivMessage::new("essaywriter".to_owned(), "I have information concerning the murder of Jeffrey Epstein.".to_owned());
+    /// let msg = PrivMessage::new("essaywriter", "I have information concerning the murder of Jeffrey Epstein.");
     /// msg.contents(); // => "I have information concerning the murder of Jeffrey Epstein."
     /// ```
     pub fn contents(&self) -> &str {
@@ -144,7 +144,7 @@ impl<'a> Mute<'a> {
     /// ```
     /// use gnomegg::spec::event::Mute;
     ///
-    /// let mute = Mute::new("essaywriter".to_owned(), 666);
+    /// let mute = Mute::new("essaywriter", 666);
     /// mute.user(); // => "essaywriter"
     /// ```
     pub fn user(&self) -> &str {
@@ -159,7 +159,7 @@ impl<'a> Mute<'a> {
     /// ```
     /// use gnomegg::spec::event::Mute;
     ///
-    /// let mute = Mute::new("essaywriter".to_owned(), 666);
+    /// let mute = Mute::new("essaywriter", 666);
     /// mute.timeframe(); // => 666
     pub fn timeframe(&self) -> u64 {
         self.duration
@@ -186,7 +186,7 @@ impl<'a> Unmute<'a> {
     /// use gnomegg::spec::event::Unmute;
     ///
     /// // Reformed AngelThump
-    /// let unmute = Unmute::new("essaywriter".to_owned());
+    /// let unmute = Unmute::new("essaywriter");
     /// ```
     pub fn new(user: &'a str) -> Self {
         Self { concerns: user }
@@ -199,7 +199,7 @@ impl<'a> Unmute<'a> {
     /// ```
     /// use gnomegg::spec::event::Unmute;
     ///
-    /// let unmute = Unmute::new("essaywriter".to_owned());
+    /// let unmute = Unmute::new("essaywriter");
     /// unmute.user(); // => "essaywriter"
     /// ```
     pub fn user(&self) -> &str {
@@ -266,7 +266,7 @@ impl<'a> Ban<'a> {
     /// ```
     /// use gnomegg::spec::event::Ban;
     ///
-    /// let ban = Ban::new("RightToBearArmsLOL".to_owned(), "failing to falsify the Christian god".to_owned(), 1024);
+    /// let ban = Ban::new("RightToBearArmsLOL", "failing to falsify the Christian god", 1024);
     /// ban.reason(); // => "failing to falsify the Christian god"
     /// ```
     pub fn reason(&self) -> &str {
@@ -280,7 +280,7 @@ impl<'a> Ban<'a> {
     /// ```
     /// use gnomegg::spec::event::Ban;
     ///
-    /// let ban = Ban::new("RightToBearArmsLOL".to_owned(), "failing to falsify the Christian god".to_owned(), 1024);
+    /// let ban = Ban::new("RightToBearArmsLOL", "failing to falsify the Christian god", 1024);
     /// ban.timeframe(); // => 1024
     /// ```
     pub fn timeframe(&self) -> u64 {
@@ -308,7 +308,7 @@ impl<'a> Unban<'a> {
     /// use gnomegg::spec::event::Unban;
     ///
     /// // Pepega Clap
-    /// let unban = Unban::new("essaywriter".to_owned());
+    /// let unban = Unban::new("essaywriter");
     /// ```
     pub fn new(user: &'a str) -> Self {
         Self { concerns: user }
@@ -322,7 +322,7 @@ impl<'a> Unban<'a> {
     /// ```
     /// use gnomegg::spec::event::Unban;
     ///
-    /// let unban = Unban::new("essaywriter".to_owned());
+    /// let unban = Unban::new("essaywriter");
     /// unban.user(); // => "essaywriter"
     /// ```
     pub fn user(&self) -> &str {
@@ -591,7 +591,7 @@ impl<'a> Error<'a> {
     /// ```
     /// use gnomegg::spec::event::{Error, EventTarget};
     ///
-    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord".to_owned());
+    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord");
     /// ```
     pub fn new(target: EventTarget<'a>, error: &'a str) -> Self {
         Self {
@@ -607,7 +607,7 @@ impl<'a> Error<'a> {
     /// ```
     /// use gnomegg::spec::event::{Error, EventTarget};
     ///
-    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord".to_owned());
+    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord");
     /// err.targets(); // => EventTarget::All
     /// ```
     pub fn targets(&self) -> &EventTarget {
@@ -621,7 +621,7 @@ impl<'a> Error<'a> {
     /// ```
     /// use gnomegg::spec::event::{Error, EventTarget};
     ///
-    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord".to_owned());
+    /// let err = Error::new(EventTarget::All, "mister mouton got evicted Slumlord");
     /// err.err_message(); // => "mister mouton got evicted Slumlord"
     /// ```
     pub fn err_message(&self) -> &str {
@@ -785,7 +785,7 @@ impl<'a> Event<'a> {
     /// let msg = Message::new("Hi nathanPepe dadd");
     /// let cmd_type = CommandKind::Message(msg);
     /// let cmd = Command::new("MrMouton", cmd_type);
-    /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
+    /// let event = Event::new(EventTarget::User("Destiny"), EventKind::IssueCommand(cmd));
     /// ```
     pub fn new(target: EventTarget<'a>, underlying_event: EventKind<'a>) -> Self {
         Self {
@@ -801,10 +801,10 @@ impl<'a> Event<'a> {
     /// ```
     /// use gnomegg::spec::event::{CommandKind, Command, Message, Event, EventTarget, EventKind};
     ///
-    /// let msg = Message::new("Hi nathanPepe dadd".to_owned());
+    /// let msg = Message::new("Hi nathanPepe dadd");
     /// let cmd_type = CommandKind::Message(msg);
-    /// let cmd = Command::new("MrMouton".to_owned(), cmd_type);
-    /// let event = Event::new(EventTarget::User("Destiny".to_owned()), EventKind::IssueCommand(cmd));
+    /// let cmd = Command::new("MrMouton", cmd_type);
+    /// let event = Event::new(EventTarget::User("Destiny"), EventKind::IssueCommand(cmd));
     /// event.targets(); // => EventTarget::User("Destiny")
     /// ```
     pub fn targets(&self) -> &EventTarget {

@@ -39,16 +39,16 @@ pub trait Provider {
     /// ```
     /// # #[macro_use]
     /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::bans::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
+    /// let mut bans = Cache::new(&mut conn);
+    /// bans.set_banned(1, true, None, None).expect("harkdan should be banned");
+    /// Ok(())
     /// # }
     /// ```
     fn set_banned(
@@ -71,21 +71,20 @@ pub trait Provider {
     /// ```
     /// # #[macro_use]
     /// # extern crate tokio;
-    /// use gnomegg::{ws_http_server::modules::bans::{Config, Cache, Provider}, spec::ban::Ban};
+    /// use gnomegg::{ws_http_server::modules::bans::{Cache, Provider}, spec::ban::NewBan};
+    /// use chrono::offset::Utc;
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// let ban = Ban::new(0, 1024);
-    ///
-    /// bans.register_ban(ban).await.expect("harkdan should be banned");
+    /// let mut bans = Cache::new(&mut conn);
+    /// bans.register_ban(&NewBan::new(1, None, Utc::now(), None));
+    /// # Ok(())
     /// # }
     /// ```
-    fn register_ban<'a>(&mut self, ban: &'a NewBan) -> Result<Option<Ban>, ProviderError>;
+    fn register_ban<'a>(&mut self, ban: &NewBan<'a>) -> Result<Option<Ban>, ProviderError>;
 
     /// Gets the ban primitive corresponding to the given user ID or IP address.
     ///
@@ -97,21 +96,18 @@ pub trait Provider {
     /// # Example
     /// 
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnoemgg::ws_http_server::modules::bans::{Config, Cache, Provider, BanQuery};
+    /// use gnomegg::ws_http_server::modules::bans::{Cache, Provider, BanQuery};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(),Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// bans.set_banned(1, true).await.expect("Dan should be banned");
-    /// assert_eq!(bans.get_ban(BanQuery::Id(1)).await.unwrap().unwrap(), true);
+    /// let mut bans = Cache::new(&mut conn);
+    /// bans.set_banned(1, true, None, None).expect("Dan should be banned");
+    /// assert_eq!(bans.get_ban(&BanQuery::Id(1)).unwrap().unwrap().active(), true);
+    /// # Ok(())
     /// # }
-    ///
     /// ```
     fn get_ban(&mut self, query: &BanQuery) -> Result<Option<Ban>, ProviderError>;
 
@@ -128,17 +124,17 @@ pub trait Provider {
     /// ```
     /// # #[macro_use]
     /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::bans::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::bans::{Cache, Provider, BanQuery};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let bans = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// bans.set_banned("Harkdan", true).await.expect("harkdan should be banned");
-    /// assert_eq!(bans.is_banned("Harkdan").await.unwrap().unwrap(), true);
+    /// let mut bans = Cache::new(&mut conn);
+    /// bans.set_banned(1, true, None, None).expect("harkdan should be banned");
+    /// assert_eq!(bans.is_banned(&BanQuery::Id(1)).unwrap(), true);
+    /// # Ok(())
     /// # }
     /// ```
     fn is_banned(&mut self, query: &BanQuery) -> Result<bool, ProviderError>;

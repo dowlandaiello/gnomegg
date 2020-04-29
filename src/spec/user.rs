@@ -79,10 +79,7 @@ impl<'a> NewIdMapping<'a> {
     /// * `username` - The username that should be mapped to the ID
     /// * `user_id` - The ID to which the username should be mapped
     pub fn new(username: &'a str, user_id: u64) -> Self {
-        Self {
-            username,
-            user_id
-        }
+        Self { username, user_id }
     }
 }
 
@@ -104,7 +101,21 @@ pub struct RedditConnection<'a> {
     value: &'a str,
 
     /// The hash associated with the user
-    hash: &'a [u8],
+    hash: blake3::Hash,
+}
+
+impl<'a> RedditConnection<'a> {
+    /// Creates a new instance of the reddit connection primitive.
+    ///
+    /// # Arguments
+    ///
+    /// * `reddit_id` - The unique identified assigned by reddit to this user
+    pub fn new(reddit_id: &'a str) -> Self {
+        Self {
+            value: reddit_id,
+            hash: blake3::hash(reddit_id.as_bytes()),
+        }
+    }
 }
 
 impl<'a> OauthConnection for RedditConnection<'a> {
@@ -116,7 +127,7 @@ impl<'a> OauthConnection for RedditConnection<'a> {
     /// ```
     /// use gnomegg::spec::user::{RedditConnection, OauthConnection};
     ///
-    /// let reddit_conn = RedditConnection{hash: b"mitta mitt mooo", value: "123456"};
+    /// let reddit_conn = RedditConnection::new("123456");
     /// assert_eq!(reddit_conn.id(), "123456")
     /// ```
     fn id(&self) -> &str {
@@ -128,12 +139,12 @@ impl<'a> OauthConnection for RedditConnection<'a> {
     /// # Example
     ///
     /// ```
-    /// use gnomegg::spec::user{RedditConnection, OauthConnection};
+    /// use gnomegg::spec::user::{RedditConnection, OauthConnection};
     ///
-    /// let reddit_conn = RedditConnection{hash: b"mitta mitt mooo", value: "123456"};
+    /// let reddit_conn = RedditConnection::new("123456");
     /// assert_eq!(reddit_conn.id_hash(), b"mitta mitt mooo")
     /// ```
     fn id_hash(&self) -> &[u8] {
-        self.hash
+        self.hash.as_bytes()
     }
 }

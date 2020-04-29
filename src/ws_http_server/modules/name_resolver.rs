@@ -73,17 +73,15 @@ impl<'a> Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::names::{Cache};
+    /// use gnomegg::ws_http_server::modules::name_resolver::{Cache};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let names = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let mut names = Cache::new(&mut conn);
+    /// Ok(())
     /// # }
     /// ```
     pub fn new(connection: &'a mut Connection) -> Self {
@@ -102,18 +100,16 @@ impl<'a> Provider for Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::names::{Cache};
+    /// use gnomegg::ws_http_server::modules::name_resolver::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let names = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// assert_eq!(names.user_id_for("MrMouton").await, None);
+    /// let mut names = Cache::new(&mut conn);
+    /// assert_eq!(names.user_id_for("MrMouton").unwrap(), None);
+    /// Ok(())
     /// # }
     /// ```
     fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
@@ -133,18 +129,16 @@ impl<'a> Provider for Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::names::{Cache};
+    /// use gnomegg::ws_http_server::modules::name_resolver::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let names = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// assert_eq!(names.username_for("69420").await, None);
+    /// let mut names = Cache::new(&mut conn);
+    /// assert_eq!(names.username_for(69420).unwrap(), None);
+    /// Ok(())
     /// # }
     /// ```
     fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
@@ -165,19 +159,17 @@ impl<'a> Provider for Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::names::{Cache};
+    /// use gnomegg::ws_http_server::modules::name_resolver::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let names = Cache::new(&conn);
-    /// assert_eq!(names.set_combination("MrMouton", 69410).await, Ok(()));
-    /// assert_eq!(names.username_for(69420).await, "MrMouton".to_owned());
+    /// let mut names = Cache::new(&mut conn);
+    /// assert_eq!(names.set_combination("MrMouton", 69410).unwrap(), ());
+    /// assert_eq!(names.username_for(69420).unwrap().unwrap(), "MrMouton".to_owned());
+    /// Ok(())
     /// # }
     /// ```
     fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError> {
@@ -262,10 +254,7 @@ impl<'a> Provider for Persistent<'a> {
             .execute(self.connection)?;
 
         diesel::insert_into(ids::dsl::ids)
-            .values(&NewIdMapping::new(
-                username,
-                user_id,
-            ))
+            .values(&NewIdMapping::new(username, user_id))
             .execute(self.connection)
             .map(|_| ())
             .map_err(|e| e.into())
@@ -294,19 +283,19 @@ impl<'a> Hybrid<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::names::{Hybrid, Cache, Persistent};
+    /// use gnomegg::ws_http_server::modules::name_resolver::{Hybrid, Cache, Persistent, Provider};
+    /// # use diesel::{mysql::{MysqlConnection}, connection::Connection};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
+    /// let persistent_conn = MysqlConnection::establish("mysql://localhost:3306/gnomegg")?;
     ///
-    /// let cached_names = Cache::new(&conn);
-    /// let persisted_names = Persistent::new(&conn);
+    /// let cached_names = Cache::new(&mut conn);
+    /// let persisted_names = Persistent::new(&persistent_conn);
     /// let all_names = Hybrid::new(cached_names, persisted_names);
+    /// Ok(())
     /// # }
     /// ```
     pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {

@@ -22,18 +22,16 @@ pub trait Provider {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None);
+    /// Ok(())
     /// # }
     /// ```
     fn set_muted(
@@ -53,20 +51,18 @@ pub trait Provider {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::{ws_http_server::modules::mutes::{Config, Cache, Provider}, spec::mute::Mute};
+    /// use gnomegg::{ws_http_server::modules::mutes::{Cache, Provider}, spec::mute::Mute};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let mut mutes = Cache::new(&mut conn);
     /// let mute = Mute::new(0, 1024);
     ///
-    /// mutes.register_mute(mute).await.expect("harkdan should be muted");
+    /// mutes.register_mute(&mute);
+    /// Ok(())
     /// # }
     /// ```
     fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError>;
@@ -88,19 +84,17 @@ pub trait Provider {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
-    /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// assert_eq!(mutes.is_muted(1).unwrap(), true);
+    /// Ok(())
     /// # }
     /// ```
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError>;
@@ -182,17 +176,15 @@ impl<'a> Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let cfg = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let cfg = Cache::new(&mut conn);
+    /// Ok(())
     /// # }
     /// ```
     pub fn new(connection: &'a mut Connection) -> Self {
@@ -213,18 +205,16 @@ impl<'a> Provider for Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// Ok(())
     /// # }
     /// ```
     fn set_muted(
@@ -264,20 +254,18 @@ impl<'a> Provider for Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::{ws_http_server::modules::mutes::{Config, Cache, Provider}, spec::mute::Mute};
+    /// use gnomegg::{ws_http_server::modules::mutes::{Cache, Provider}, spec::mute::Mute};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let mut mutes = Cache::new(&mut conn);
     /// let mute = Mute::new(0, 1024);
     ///
-    /// mutes.register_mute(mute).await.expect("harkdan should be muted");
+    /// mutes.register_mute(&mute).expect("harkdan should be muted");
+    /// Ok(())
     /// # }
     /// ```
     fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
@@ -318,19 +306,17 @@ impl<'a> Provider for Cache<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
-    /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// assert_eq!(mutes.is_muted(1).unwrap(), true);
+    /// Ok(())
     /// # }
     /// ```
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError> {
@@ -363,18 +349,16 @@ impl<'a> Provider for Persistent<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// Ok(())
     /// # }
     /// ```
     fn set_muted(
@@ -413,20 +397,18 @@ impl<'a> Provider for Persistent<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::{ws_http_server::modules::mutes::{Config, Cache, Provider}, spec::mute::Mute};
+    /// use gnomegg::{ws_http_server::modules::mutes::{Cache, Provider}, spec::mute::Mute};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// let mute = Mute::new(0, 1024);
+    /// let mut mutes = Cache::new(&mut conn);
+    /// let mute = Mute::new(1, 1024);
     ///
-    /// mutes.register_mute(mute).await.expect("harkdan should be muted");
+    /// mutes.register_mute(&mute).expect("harkdan should be muted");
+    /// Ok(())
     /// # }
     /// ```
     fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
@@ -468,19 +450,17 @@ impl<'a> Provider for Persistent<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
-    /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// assert_eq!(mutes.is_muted(1).unwrap(), true);
+    /// Ok(())
     /// # }
     /// ```
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError> {
@@ -523,18 +503,16 @@ impl<'a> Provider for Hybrid<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// Ok(())
     /// # }
     /// ```
     fn set_muted(
@@ -558,26 +536,24 @@ impl<'a> Provider for Hybrid<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::{ws_http_server::modules::mutes::{Config, Cache, Provider}, spec::mute::Mute};
+    /// use gnomegg::{ws_http_server::modules::mutes::{Cache, Provider}, spec::mute::Mute};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
+    /// let mut mutes = Cache::new(&mut conn);
     /// let mute = Mute::new(0, 1024);
     ///
-    /// mutes.register_mute(mute).await.expect("harkdan should be muted");
+    /// mutes.register_mute(&mute).expect("harkdan should be muted");
+    /// Ok(())
     /// # }
     /// ```
     fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
         self.cache
-            .register_mute(mute)
-            .and(self.persistent.register_mute(mute))
+            .register_mute(&mute)
+            .and(self.persistent.register_mute(&mute))
     }
 
     /// Gets the mute primitive corresponding to the given user ID.
@@ -601,19 +577,17 @@ impl<'a> Provider for Hybrid<'a> {
     /// # Example
     ///
     /// ```
-    /// # #[macro_use]
-    /// # extern crate tokio;
-    /// use gnomegg::ws_http_server::modules::mutes::{Config, Cache, Provider};
+    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
     /// # use std::error::Error;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// let addr = "127.0.0.1:6379".parse().expect("the redis address should have been parsed successfully");
-    /// let conn = paired_connect(addr).await.expect("a connection to have been made to the redis server");
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let client = redis::Client::open("redis://127.0.0.1/")?;
+    /// let mut conn = client.get_connection()?;
     ///
-    /// let mutes = Cache::new(&conn).await.expect("a connection must be made to redis");
-    /// mutes.set_muted("Harkdan", true).await.expect("harkdan should be muted");
-    /// assert_eq!(mutes.is_muted("Harkdan").await.unwrap().unwrap(), true);
+    /// let mut mutes = Cache::new(&mut conn);
+    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// assert_eq!(mutes.is_muted(1).unwrap(), true);
+    /// Ok(())
     /// # }
     /// ```
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError> {
