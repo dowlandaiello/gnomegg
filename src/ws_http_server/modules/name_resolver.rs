@@ -340,14 +340,13 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
     fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
-        let id = self
-            .cache
-            .user_id_for(username)
-            .or_else(|_| self.persistent.user_id_for(username).and_then(|id| {
-                self.cache.set_combination(username, id).and(Ok(id))
-            }))?;
-
-        Ok(id)
+        self.cache.user_id_for(username).or_else(|_| {
+            self.persistent.user_id_for(username).and_then(|id| {
+                id.map_or(Ok(None), |id| {
+                    self.cache.set_combination(username, id).and(Ok(Some(id)))
+                })
+            })
+        })
     }
 
     /// Retreives the username matching the provided user ID.
@@ -357,16 +356,15 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
     fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
-        let username = self
-            .cache
-            .username_for(user_id)
-            .or_else(|_| self.persistent.username_for(user_id))?;
-
-        if let Some(name) = &username {
-            self.cache.set_combination(name, user_id)?;
-        }
-
-        Ok(username)
+        self.cache.username_for(user_id).or_else(|_| {
+            self.persistent.username_for(user_id).and_then(|username| {
+                username.map_or(Ok(None), |username| {
+                    self.cache
+                        .set_combination(&username, user_id)
+                        .and(Ok(Some(username)))
+                })
+            })
+        })
     }
 
     /// Stores a username to user ID / user ID to username mapping in a

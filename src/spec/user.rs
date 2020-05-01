@@ -61,13 +61,19 @@ impl<'a> NewUser<'a> {
     /// * `nationality` - The country that the user most identifies with
     /// * `accepts_gifts` - Whether or not donations can be made to this user
     /// * `minecraft_name` - The user's name in minecraft
-    pub fn new(username: &'a str, verified: bool, nationality: &'a str, accepts_gifts: bool, minecraft_name: &'a str) -> Self {
+    pub fn new(
+        username: &'a str,
+        verified: bool,
+        nationality: &'a str,
+        accepts_gifts: bool,
+        minecraft_name: &'a str,
+    ) -> Self {
         Self {
             username,
             verified,
             nationality,
             accepts_gifts,
-            minecraft_name
+            minecraft_name,
         }
     }
 

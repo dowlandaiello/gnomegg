@@ -502,7 +502,10 @@ impl<'a> Provider for Hybrid<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::super::spec::{user::NewUser, schema::users}, *};
+    use super::{
+        super::super::super::spec::{schema::users, user::NewUser},
+        *,
+    };
 
     use diesel::connection::Connection;
     use dotenv;

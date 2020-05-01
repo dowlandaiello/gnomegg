@@ -2,7 +2,7 @@ use diesel::{mysql::MysqlConnection, result::Error as DieselError, QueryDsl, Run
 use redis::{Connection, RedisError};
 use serde_json::Error as SerdeError;
 
-use std::{fmt, error::Error};
+use std::{error::Error, fmt};
 
 use super::super::super::spec::{mute::Mute, schema::mutes};
 
@@ -626,11 +626,11 @@ mod tests {
                 "DATABASE_URL must be set in a .env file for test to complete successfully",
             ))?;
 
+        // Mute MrMouton for 2048 nanoseconds
         let mut mutes = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
-        mutes.set_muted(42069)?;
+        mutes.set_muted(42069, true, Some(1_000_000))?;
 
-        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
-        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+        assert_eq!(mutes.is_muted(42069)?, true);
 
         Ok(())
     }
