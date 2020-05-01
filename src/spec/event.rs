@@ -569,7 +569,7 @@ impl<'a> Broadcast<'a> {
 
 /// Error is an event representing a failure response from the server to a set
 /// of clients.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Error<'a> {
     /// The users that this error will be communicated to
     concerns: EventTarget<'a>,
@@ -728,7 +728,7 @@ impl<'a> Command<'a> {
 
 /// EventTarget is a permissioning utility for events emitted by the server or a
 /// client. Events will only be communicated to the specified target group.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum EventTarget<'a> {
     /// This event targets all active chatters
     All,

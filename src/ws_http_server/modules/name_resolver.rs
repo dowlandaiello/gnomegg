@@ -9,11 +9,32 @@ use super::super::super::spec::{
     user::NewIdMapping,
 };
 
+use std::{error::Error, fmt};
+
 /// ProviderError represents any error emitted by a name resolution provider.
 #[derive(Debug)]
 pub enum ProviderError {
     RedisError(RedisError),
     DieselError(DieselError),
+}
+
+impl fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "the name resolution service provider encountered an error: {}",
+            self.source().map(|e| format!("{}", e)).unwrap_or_default()
+        )
+    }
+}
+
+impl Error for ProviderError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::RedisError(e) => Some(e),
+            Self::DieselError(e) => Some(e),
+        }
+    }
 }
 
 impl From<RedisError> for ProviderError {
@@ -108,13 +129,14 @@ impl<'a> Provider for Cache<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut names = Cache::new(&mut conn);
-    /// assert_eq!(names.user_id_for("MrMouton").unwrap(), None);
+    /// names.set_combination("MrMouton", 69420)?;
+    /// assert_eq!(names.user_id_for("MrMouton").unwrap(), Some(69420));
     /// Ok(())
     /// # }
     /// ```
     fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
         redis::cmd("GET")
-            .arg(username)
+            .arg(format!("username::{}", username))
             .query(self.connection)
             .map_err(|e| e.into())
     }
@@ -137,13 +159,14 @@ impl<'a> Provider for Cache<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut names = Cache::new(&mut conn);
-    /// assert_eq!(names.username_for(69420).unwrap(), None);
+    /// names.set_combination("MrMouton", 69420)?;
+    /// assert_eq!(names.username_for(69420).unwrap(), Some("MrMouton".to_owned()));
     /// Ok(())
     /// # }
     /// ```
     fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
         redis::cmd("GET")
-            .arg(user_id)
+            .arg(format!("user_id::{}", user_id))
             .query(self.connection)
             .map_err(|e| e.into())
     }
@@ -173,9 +196,11 @@ impl<'a> Provider for Cache<'a> {
     /// # }
     /// ```
     fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError> {
-        redis::cmd("PUT")
-            .arg(username)
+        redis::cmd("MSET")
+            .arg(format!("username::{}", username))
             .arg(user_id)
+            .arg(format!("user_id::{}", user_id))
+            .arg(username)
             .query(self.connection)
             .map_err(|e| e.into())
     }
@@ -284,13 +309,17 @@ impl<'a> Hybrid<'a> {
     ///
     /// ```
     /// use gnomegg::ws_http_server::modules::name_resolver::{Hybrid, Cache, Persistent, Provider};
+    /// use dotenv;
+    /// use std::env;
     /// # use diesel::{mysql::{MysqlConnection}, connection::Connection};
     /// # use std::error::Error;
     ///
     /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// dotenv::dotenv()?;
+    ///
     /// let client = redis::Client::open("redis://127.0.0.1/")?;
     /// let mut conn = client.get_connection()?;
-    /// let persistent_conn = MysqlConnection::establish("mysql://localhost:3306/gnomegg")?;
+    /// let persistent_conn = MysqlConnection::establish(&env::var("DATABASE_URL").expect("DATABASE_URL must be set in a .env file for test to complete successfully"))?;
     ///
     /// let cached_names = Cache::new(&mut conn);
     /// let persisted_names = Persistent::new(&persistent_conn);
