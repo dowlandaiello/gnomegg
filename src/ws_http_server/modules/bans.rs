@@ -94,7 +94,7 @@ pub trait Provider {
     /// searched for in the database
     ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use gnomegg::ws_http_server::modules::bans::{Cache, Provider, BanQuery};
     /// # use std::error::Error;
@@ -275,7 +275,7 @@ impl<'a> Provider for Cache<'a> {
             .query::<Option<String>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|str_data| serde_json::to_string::<Ban>(&bytes).map(Some))?
+                raw.map(|str_data| serde_json::from_str::<Ban>(&str_data).map(Some))?
                     .unwrap_or(None)
             })
     }
@@ -471,7 +471,9 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `query` - A query containing an IP address or a user ID that should be
     /// searched for in the database
     fn get_ban(&mut self, query: &BanQuery) -> Result<Option<Ban>, ProviderError> {
-        self.cache.get_ban(query).or_else(|_| self.persistent.get_ban(query))
+        self.cache
+            .get_ban(query)
+            .or_else(|_| self.persistent.get_ban(query))
     }
 
     /// Checks whether or not a user with the given username has been banned

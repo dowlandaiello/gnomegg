@@ -1,5 +1,5 @@
-use chrono::{Utc, naive::NaiveDateTime, DateTime};
-use serde::{Serialize, Deserialize};
+use chrono::{naive::NaiveDateTime, DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Message is a message sent as text, rendered on the client.
 #[derive(Serialize, Deserialize)]

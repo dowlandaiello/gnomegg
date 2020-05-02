@@ -7,7 +7,9 @@ use serde_json::Error as SerdeError;
 use std::io::{Error as IoError, ErrorKind};
 
 /// Mute represents a mute entry in the SQL database.
-#[derive(Identifiable, Insertable, Queryable, Associations, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(
+    Identifiable, Insertable, Queryable, Associations, Serialize, Deserialize, PartialEq, Debug,
+)]
 #[belongs_to(User)]
 #[table_name = "mutes"]
 #[primary_key(user_id)]

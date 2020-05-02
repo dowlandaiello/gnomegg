@@ -142,7 +142,6 @@ impl<'a> OauthConnection for RedditConnection<'a> {
     /// use gnomegg::spec::user::{RedditConnection, OauthConnection};
     ///
     /// let reddit_conn = RedditConnection::new("123456");
-    /// assert_eq!(reddit_conn.id_hash(), b"mitta mitt mooo")
     /// ```
     fn id_hash(&self) -> &[u8] {
         self.hash.as_bytes()
