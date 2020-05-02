@@ -5,7 +5,7 @@ use diesel::{
 use redis::{Connection, RedisError};
 use serde_json::Error as SerdeError;
 
-use std::fmt;
+use std::{error::Error, fmt};
 
 use super::super::super::spec::{
     ban::{Ban, NewBan},
@@ -162,6 +162,17 @@ impl fmt::Display for ProviderError {
             Self::MissingArgument { arg } => {
                 write!(f, "malformed query; missing argument: {}", arg)
             }
+        }
+    }
+}
+
+impl Error for ProviderError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::RedisError(e) => Some(e),
+            Self::SerdeError(e) => Some(e),
+            Self::DieselError(e) => Some(e),
+            _ => None,
         }
     }
 }
@@ -486,5 +497,94 @@ impl<'a> Provider for Hybrid<'a> {
         self.cache
             .is_banned(query)
             .or_else(|_| self.persistent.is_banned(query))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{super::super::super::spec::{user::NewUser, schema::users}, *};
+
+    use diesel::connection::Connection;
+    use dotenv;
+    use std::{default::Default, env};
+
+    #[test]
+    fn test_hybrid() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
+        let persistent_conn =
+            MysqlConnection::establish(&env::var("DATABASE_URL").expect(
+                "DATABASE_URL must be set in a .env file for test to complete successfully",
+            ))?;
+
+        // Register MrMouton as a user so that we can register a mapping
+        // between the username and ID
+        diesel::replace_into(users::table)
+            .values(NewUser::default().with_username("MrMouton"))
+            .execute(&persistent_conn)?;
+
+        // Get MrMouton's ID for easy testing (so we can ensure that a
+        // combination in the name resolver gets resolved correctly in the
+        // future)
+        let id = users::dsl::users
+            .filter(users::dsl::username.eq("MrMouton"))
+            .select(users::dsl::id)
+            .first(&persistent_conn)?;
+
+        // Ban MrMouton forever
+        let mut bans = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
+        bans.set_banned(id, true, None, None)?;
+
+        assert_eq!(bans.is_banned(&BanQuery::Id(id))?, true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cache() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
+
+        // Ban MrMouton forever
+        let mut bans = Cache::new(&mut conn);
+        bans.set_banned(42069, true, None, None)?;
+
+        assert_eq!(bans.is_banned(&BanQuery::Id(42069))?, true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_persistent() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let persistent_conn =
+            MysqlConnection::establish(&env::var("DATABASE_URL").expect(
+                "DATABASE_URL must be set in a .env file for test to complete successfully",
+            ))?;
+
+        // Register MrMouton as a user so that we can register a mapping
+        // between the username and ID
+        diesel::replace_into(users::table)
+            .values(NewUser::default().with_username("MrMouton"))
+            .execute(&persistent_conn)?;
+
+        // Get MrMouton's ID for easy testing (so we can ensure that a
+        // combination in the name resolver gets resolved correctly in the
+        // future)
+        let id = users::dsl::users
+            .filter(users::dsl::username.eq("MrMouton"))
+            .select(users::dsl::id)
+            .first(&persistent_conn)?;
+
+        // Ban MrMouton forever
+        let mut bans = Persistent::new(&persistent_conn);
+        bans.set_banned(id, true, None, None)?;
+
+        assert_eq!(bans.is_banned(&BanQuery::Id(id))?, true);
+
+        Ok(())
     }
 }
