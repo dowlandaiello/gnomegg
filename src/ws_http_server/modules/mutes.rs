@@ -30,7 +30,7 @@ pub trait Provider {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None);
+    /// mutes.set_muted(1, true, Some(1_000_000_000));
     /// Ok(())
     /// # }
     /// ```
@@ -92,7 +92,7 @@ pub trait Provider {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, Some(1000000000)).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1_000_000_000)).expect("harkdan should be muted");
     /// assert_eq!(mutes.is_muted(1).unwrap(), true);
     /// Ok(())
     /// # }
@@ -213,7 +213,7 @@ impl<'a> Provider for Cache<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1_000_000_000)).expect("harkdan should be muted");
     /// Ok(())
     /// # }
     /// ```
@@ -314,7 +314,7 @@ impl<'a> Provider for Cache<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1_000_000_000)).expect("harkdan should be muted");
     /// assert_eq!(mutes.is_muted(1).unwrap(), true);
     /// Ok(())
     /// # }
@@ -357,7 +357,7 @@ impl<'a> Provider for Persistent<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1_000_000_000)).expect("harkdan should be muted");
     /// Ok(())
     /// # }
     /// ```
@@ -458,7 +458,7 @@ impl<'a> Provider for Persistent<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1_000_000_000)).expect("harkdan should be muted");
     /// assert_eq!(mutes.is_muted(1).unwrap(), true);
     /// Ok(())
     /// # }
@@ -511,7 +511,7 @@ impl<'a> Provider for Hybrid<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1_000_000_000)).expect("harkdan should be muted");
     /// Ok(())
     /// # }
     /// ```
@@ -585,7 +585,7 @@ impl<'a> Provider for Hybrid<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1_000_000_000)).expect("harkdan should be muted");
     /// assert_eq!(mutes.is_muted(1).unwrap(), true);
     /// Ok(())
     /// # }

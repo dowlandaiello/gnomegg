@@ -269,13 +269,13 @@ impl<'a> Provider for Cache<'a> {
                 .query::<()>(self.connection)?;
         }
 
-        redis::cmd("SET")
+        redis::cmd("GETSET")
             .arg(format!("banned::{}", ban.concerns()))
             .arg(serde_json::to_vec(ban)?)
-            .query::<Option<Vec<u8>>>(self.connection)
+            .query::<Option<String>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(Some))?
+                raw.map(|str_data| serde_json::to_string::<Ban>(&bytes).map(Some))?
                     .unwrap_or(None)
             })
     }
@@ -292,10 +292,10 @@ impl<'a> Provider for Cache<'a> {
                 BanQuery::Address(s) => format!("banned_addr::{}", s),
                 BanQuery::Id(id) => format!("banned::{}", id),
             })
-            .query::<Option<Vec<u8>>>(self.connection)
+            .query::<Option<String>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Ban>(&bytes).map(Some))?
+                raw.map(|str_data| serde_json::from_str::<Ban>(&str_data).map(Some))?
                     .unwrap_or(None)
             })
     }
