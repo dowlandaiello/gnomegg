@@ -92,7 +92,7 @@ pub trait Provider {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut mutes = Cache::new(&mut conn);
-    /// mutes.set_muted(1, true, None).expect("harkdan should be muted");
+    /// mutes.set_muted(1, true, Some(1000000000)).expect("harkdan should be muted");
     /// assert_eq!(mutes.is_muted(1).unwrap(), true);
     /// Ok(())
     /// # }
@@ -269,13 +269,13 @@ impl<'a> Provider for Cache<'a> {
     /// # }
     /// ```
     fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
-        redis::cmd("SET")
+        redis::cmd("GETSET")
             .arg(format!("muted::{}", mute.concerns()))
-            .arg(serde_json::to_vec(mute)?)
-            .query::<Option<Vec<u8>>>(self.connection)
+            .arg(serde_json::to_string(mute)?)
+            .query::<Option<String>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Mute>(&bytes).map(Some))?
+                raw.map(|str_data| serde_json::from_str::<Mute>(&str_data).map(Some))?
                     .unwrap_or(None)
             })
     }
@@ -289,10 +289,10 @@ impl<'a> Provider for Cache<'a> {
     fn get_mute(&mut self, user_id: u64) -> Result<Option<Mute>, ProviderError> {
         redis::cmd("GET")
             .arg(format!("muted::{}", user_id))
-            .query::<Option<Vec<u8>>>(self.connection)
+            .query::<Option<String>>(self.connection)
             .map_err(|e| e.into())
             .map(|raw| {
-                raw.map(|bytes| serde_json::from_slice::<Mute>(&bytes).map(Some))?
+                raw.map(|str_data| serde_json::from_str::<Mute>(&str_data).map(Some))?
                     .unwrap_or(None)
             })
     }
