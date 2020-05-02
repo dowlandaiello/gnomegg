@@ -276,8 +276,7 @@ impl<'a> Provider for Persistent<'a> {
         // secondary mappings
         diesel::update(users::dsl::users.find(user_id))
             .set(users::dsl::username.eq(username))
-            .execute(self.connection)
-            .map_err(|_| DieselError::NotFound)?;
+            .execute(self.connection)?;
 
         diesel::replace_into(ids::dsl::ids)
             .values(&NewIdMapping::new(username, user_id))
@@ -341,7 +340,8 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
     fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
-        let id = self.cache
+        let id = self
+            .cache
             .user_id_for(username)
             .or_else(|_| self.persistent.user_id_for(username))?;
 
@@ -359,7 +359,8 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
     fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
-        let username = self.cache
+        let username = self
+            .cache
             .username_for(user_id)
             .or_else(|_| self.persistent.username_for(user_id))?;
 
@@ -386,18 +387,21 @@ impl<'a> Provider for Hybrid<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{super::super::super::spec::user::NewUser, *};
 
     use diesel::connection::Connection;
     use dotenv;
-    use std::env;
+    use std::{default::Default, env};
 
     #[test]
     fn test_hybrid() -> Result<(), Box<dyn Error>> {
         dotenv::dotenv()?;
 
         let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
-        let persistent_conn = MysqlConnection::establish(&env::var("DATABASE_URL").expect("DATABASE_URL must be set in a .env file for test to complete successfully"))?;
+        let persistent_conn =
+            MysqlConnection::establish(&env::var("DATABASE_URL").expect(
+                "DATABASE_URL must be set in a .env file for test to complete successfully",
+            ))?;
 
         let mut names = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
         names.set_combination("MrMouton", 42069)?;
@@ -427,13 +431,32 @@ mod tests {
     fn test_persistent() -> Result<(), Box<dyn Error>> {
         dotenv::dotenv()?;
 
-        let persistent_conn = MysqlConnection::establish(&env::var("DATABASE_URL").expect("DATABASE_URL must be set in a .env file for test to complete successfully"))?;
+        // Open a connection with the MySQL server
+        let persistent_conn =
+            MysqlConnection::establish(&env::var("DATABASE_URL").expect(
+                "DATABASE_URL must be set in a .env file for test to complete successfully",
+            ))?;
 
+        // Register MrMouton as a user so that we can register a mapping
+        // between the username and ID
+        diesel::replace_into(users::table)
+            .values(NewUser::default().with_username("MrMouton"))
+            .execute(&persistent_conn)?;
+
+        // Get MrMouton's ID for easy testing (so we can ensure that a
+        // combination in the name resolver gets resolved correctly in the
+        // future)
+        let id = users::dsl::users
+            .filter(users::dsl::username.eq("MrMouton"))
+            .select(users::dsl::id)
+            .first(&persistent_conn)?;
+
+        // Make a name resolver backend based on the MySQL database conn adapter
         let mut names = Persistent::new(&persistent_conn);
-        names.set_combination("MrMouton", 42069)?;
+        names.set_combination("MrMouton", id)?;
 
-        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
-        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+        assert_eq!(names.username_for(id)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), id);
 
         Ok(())
     }

@@ -2,6 +2,8 @@ use super::schema::{ids, users};
 use diesel::Insertable;
 use serde::{Deserialize, Serialize};
 
+use std::default::Default;
+
 /// User represents a generic gnome.gg user.
 #[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Debug)]
 #[table_name = "users"]
@@ -26,9 +28,9 @@ pub struct User {
 }
 
 /// NewUser represents a request to create a new user.
-#[derive(Insertable, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Insertable, Serialize, Deserialize, PartialEq, Debug, Default)]
 #[table_name = "users"]
-pub(crate) struct NewUser<'a> {
+pub struct NewUser<'a> {
     /// The username of the user
     username: &'a str,
 
@@ -43,6 +45,92 @@ pub(crate) struct NewUser<'a> {
 
     /// The user's minecraft username
     minecraft_name: &'a str,
+}
+
+impl<'a> NewUser<'a> {
+    /// Creates a completely filled user primitive instance with the given
+    /// field values. A default implementation for NewUser is provided, and
+    /// can be used in conjunction with the provided builder API, should a non-
+    /// completed version of NewUser wish to be created.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username of the user that will be stored in the
+    /// created primitive instance
+    /// * `verified` - Whether or not the user has a verified email
+    /// * `nationality` - The country that the user most identifies with
+    /// * `accepts_gifts` - Whether or not donations can be made to this user
+    /// * `minecraft_name` - The user's name in minecraft
+    pub fn new(username: &'a str, verified: bool, nationality: &'a str, accepts_gifts: bool, minecraft_name: &'a str) -> Self {
+        Self {
+            username,
+            verified,
+            nationality,
+            accepts_gifts,
+            minecraft_name
+        }
+    }
+
+    /// Consumes an existing instance of the NewUser, and modifies it according to
+    /// the provided username.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username that should be attached to the returned
+    /// user primitive instance
+    pub fn with_username(mut self, username: &'a str) -> Self {
+        self.username = username;
+
+        self
+    }
+
+    /// Consumes an existing instance of the NewUser, and modifies it according to
+    /// the provided "verified" status.
+    ///
+    /// # Arugments
+    ///
+    /// * `verified` - Whether or not the user has a verified email
+    pub fn with_verified(mut self, verified: bool) -> Self {
+        self.verified = verified;
+
+        self
+    }
+
+    /// Consumes an existing instance of the NewUser, and modifies it according to
+    /// the provided nationality.
+    ///
+    /// # Arugments
+    ///
+    /// * `nationality` - The country that the user most identifies with
+    pub fn with_nationality(mut self, nationality: &'a str) -> Self {
+        self.nationality = nationality;
+
+        self
+    }
+
+    /// Consumes an existing instance of the NewUser, and modifies it according to
+    /// the provided "accepts gifts" status.
+    ///
+    /// # Arugments
+    ///
+    /// * `accepts_gifts` - Whther or not the user accepts gifts
+    pub fn with_accepts_gifts(mut self, accepts_gifts: bool) -> Self {
+        self.accepts_gifts = accepts_gifts;
+
+        self
+    }
+
+    /// Consumes an existing instance of the NewUser, and modifies it according to
+    /// the provided minecraft username.
+    ///
+    /// # Arugments
+    ///
+    /// * `accepts_gifts` - Whther or not the user accepts gifts
+    pub fn with_minecraft_name(mut self, minecraft_name: &'a str) -> Self {
+        self.minecraft_name = minecraft_name;
+
+        self
+    }
 }
 
 /// IDs represents each ID attached to each user in the database.
