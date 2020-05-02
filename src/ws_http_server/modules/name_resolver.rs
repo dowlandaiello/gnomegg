@@ -407,4 +407,34 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_cache() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
+
+        let mut names = Cache::new(&mut conn);
+        names.set_combination("MrMouton", 42069)?;
+
+        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_persistent() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let persistent_conn = MysqlConnection::establish(&env::var("DATABASE_URL").expect("DATABASE_URL must be set in a .env file for test to complete successfully"))?;
+
+        let mut names = Persistent::new(&persistent_conn);
+        names.set_combination("MrMouton", 42069)?;
+
+        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+
+        Ok(())
+    }
 }
