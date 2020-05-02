@@ -414,7 +414,7 @@ impl<'a> Provider for Persistent<'a> {
     fn register_mute(&mut self, mute: &Mute) -> Result<Option<Mute>, ProviderError> {
         let old = self.get_mute(mute.concerns())?;
 
-        diesel::insert_into(mutes::table)
+        diesel::replace_into(mutes::table)
             .values(mute)
             .execute(self.connection)?;
 

@@ -366,7 +366,7 @@ impl<'a> Provider for Persistent<'a> {
     fn register_ban(&mut self, ban: &NewBan) -> Result<Option<Ban>, ProviderError> {
         let old = self.get_ban(&BanQuery::Id(ban.concerns()))?;
 
-        diesel::insert_into(bans::table)
+        diesel::replace_into(bans::table)
             .values(ban)
             .execute(self.connection)?;
 

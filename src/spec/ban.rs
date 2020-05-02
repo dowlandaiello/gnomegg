@@ -37,6 +37,10 @@ impl Default for Ban {
 
 impl Ban {
     /// Creates a new ban primitive, assuming a permaban at the current time.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user who will be banned
     pub fn new(user_id: u64) -> Self {
         Self {
             user_id,

@@ -136,7 +136,7 @@ impl<'a> Provider for Cache<'a> {
     /// ```
     fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
         redis::cmd("GET")
-            .arg(format!("username::{}", username))
+            .arg(format!("user_id::{}", username))
             .query(self.connection)
             .map_err(|e| e.into())
     }
@@ -166,7 +166,7 @@ impl<'a> Provider for Cache<'a> {
     /// ```
     fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
         redis::cmd("GET")
-            .arg(format!("user_id::{}", user_id))
+            .arg(format!("username::{}", user_id))
             .query(self.connection)
             .map_err(|e| e.into())
     }
@@ -197,9 +197,9 @@ impl<'a> Provider for Cache<'a> {
     /// ```
     fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError> {
         redis::cmd("MSET")
-            .arg(format!("username::{}", username))
+            .arg(format!("user_id::{}", username))
             .arg(user_id)
-            .arg(format!("user_id::{}", user_id))
+            .arg(format!("username::{}", user_id))
             .arg(username)
             .query(self.connection)
             .map_err(|e| e.into())
@@ -276,9 +276,10 @@ impl<'a> Provider for Persistent<'a> {
         // secondary mappings
         diesel::update(users::dsl::users.find(user_id))
             .set(users::dsl::username.eq(username))
-            .execute(self.connection)?;
+            .execute(self.connection)
+            .map_err(|_| DieselError::NotFound)?;
 
-        diesel::insert_into(ids::dsl::ids)
+        diesel::replace_into(ids::dsl::ids)
             .values(&NewIdMapping::new(username, user_id))
             .execute(self.connection)
             .map(|_| ())
@@ -340,9 +341,15 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `username` - The username for which a corresponding user ID should
     /// be obtained
     fn user_id_for(&mut self, username: &str) -> Result<Option<u64>, ProviderError> {
-        self.cache
+        let id = self.cache
             .user_id_for(username)
-            .or_else(|_| self.persistent.user_id_for(username))
+            .or_else(|_| self.persistent.user_id_for(username))?;
+
+        if let Some(id) = id {
+            self.cache.set_combination(username, id)?;
+        }
+
+        Ok(id)
     }
 
     /// Retreives the username matching the provided user ID.
@@ -352,9 +359,15 @@ impl<'a> Provider for Hybrid<'a> {
     /// * `user_id` - The user ID for which a corresponding username should be
     /// obtained
     fn username_for(&mut self, user_id: u64) -> Result<Option<String>, ProviderError> {
-        self.cache
+        let username = self.cache
             .username_for(user_id)
-            .or_else(|_| self.persistent.username_for(user_id))
+            .or_else(|_| self.persistent.username_for(user_id))?;
+
+        if let Some(name) = &username {
+            self.cache.set_combination(name, user_id)?;
+        }
+
+        Ok(username)
     }
 
     /// Stores a username to user ID / user ID to username mapping in a
@@ -368,5 +381,30 @@ impl<'a> Provider for Hybrid<'a> {
         self.cache
             .set_combination(username, user_id)
             .and(self.persistent.set_combination(username, user_id))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use diesel::connection::Connection;
+    use dotenv;
+    use std::env;
+
+    #[test]
+    fn test_hybrid() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
+        let persistent_conn = MysqlConnection::establish(&env::var("DATABASE_URL").expect("DATABASE_URL must be set in a .env file for test to complete successfully"))?;
+
+        let mut names = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
+        names.set_combination("MrMouton", 42069)?;
+
+        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+
+        Ok(())
     }
 }
