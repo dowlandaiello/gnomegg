@@ -343,11 +343,9 @@ impl<'a> Provider for Hybrid<'a> {
         let id = self
             .cache
             .user_id_for(username)
-            .or_else(|_| self.persistent.user_id_for(username))?;
-
-        if let Some(id) = id {
-            self.cache.set_combination(username, id)?;
-        }
+            .or_else(|_| self.persistent.user_id_for(username).and_then(|id| {
+                self.cache.set_combination(username, id).and(Ok(id))
+            }))?;
 
         Ok(id)
     }

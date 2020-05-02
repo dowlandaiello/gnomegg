@@ -2,7 +2,7 @@ use diesel::{mysql::MysqlConnection, result::Error as DieselError, QueryDsl, Run
 use redis::{Connection, RedisError};
 use serde_json::Error as SerdeError;
 
-use std::fmt;
+use std::{fmt, error::Error};
 
 use super::super::super::spec::{mute::Mute, schema::mutes};
 
@@ -122,6 +122,17 @@ impl fmt::Display for ProviderError {
             Self::MissingArgument { arg } => {
                 write!(f, "malformed query; missing argument: {}", arg)
             }
+        }
+    }
+}
+
+impl Error for ProviderError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::RedisError(e) => Some(e),
+            Self::SerdeError(e) => Some(e),
+            Self::DieselError(e) => Some(e),
+            _ => None,
         }
     }
 }
@@ -594,5 +605,82 @@ impl<'a> Provider for Hybrid<'a> {
         self.cache
             .is_muted(user_id)
             .or_else(|_| self.persistent.is_muted(user_id))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{super::super::super::spec::user::NewUser, *};
+
+    use diesel::connection::Connection;
+    use dotenv;
+    use std::{default::Default, env};
+
+    #[test]
+    fn test_hybrid() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
+        let persistent_conn =
+            MysqlConnection::establish(&env::var("DATABASE_URL").expect(
+                "DATABASE_URL must be set in a .env file for test to complete successfully",
+            ))?;
+
+        let mut mutes = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
+        mutes.set_muted(42069)?;
+
+        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cache() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
+
+        let mut names = Cache::new(&mut conn);
+        names.set_combination("MrMouton", 42069)?;
+
+        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_persistent() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        // Open a connection with the MySQL server
+        let persistent_conn =
+            MysqlConnection::establish(&env::var("DATABASE_URL").expect(
+                "DATABASE_URL must be set in a .env file for test to complete successfully",
+            ))?;
+
+        // Register MrMouton as a user so that we can register a mapping
+        // between the username and ID
+        diesel::replace_into(users::table)
+            .values(NewUser::default().with_username("MrMouton"))
+            .execute(&persistent_conn)?;
+
+        // Get MrMouton's ID for easy testing (so we can ensure that a
+        // combination in the name resolver gets resolved correctly in the
+        // future)
+        let id = users::dsl::users
+            .filter(users::dsl::username.eq("MrMouton"))
+            .select(users::dsl::id)
+            .first(&persistent_conn)?;
+
+        // Make a name resolver backend based on the MySQL database conn adapter
+        let mut names = Persistent::new(&persistent_conn);
+        names.set_combination("MrMouton", id)?;
+
+        assert_eq!(names.username_for(id)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), id);
+
+        Ok(())
     }
 }
