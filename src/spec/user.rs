@@ -15,13 +15,13 @@ pub struct User {
     username: String,
 
     /// Whether or not the user has a verified email
-    verified:: bool,
+    verified: bool,
 
     /// The country that the user most identifies with
     nationality: String,
 
     /// Whether or not the user accepts gifts
-    accepts_gifts:: bool,
+    accepts_gifts: bool,
 
     /// The user's minecraft username
     minecraft_name: String,
@@ -35,13 +35,13 @@ pub struct NewUser<'a> {
     username: &'a str,
 
     /// Whether or not the user has a verified email
-    verified:: bool,
+    verified: bool,
 
     /// The country that the user most identifies with
     nationality: &'a str,
 
     /// Whether or not the user accepts gifts
-    accepts_gifts:: bool,
+    accepts_gifts: bool,
 
     /// The user's minecraft username
     minecraft_name: &'a str,
@@ -63,9 +63,9 @@ impl<'a> NewUser<'a> {
     /// * `minecraft_name` - The user's name in minecraft
     pub fn new(
         username: &'a str,
-        verified:: bool,
+        verified: bool,
         nationality: &'a str,
-        accepts_gifts:: bool,
+        accepts_gifts: bool,
         minecraft_name: &'a str,
     ) -> Self {
         Self {
@@ -96,7 +96,7 @@ impl<'a> NewUser<'a> {
     /// # Arugments
     ///
     /// * `verified` - Whether or not the user has a verified email
-    pub fn with_verified(mut self, verified:: bool) -> Self {
+    pub fn with_verified(mut self, verified: bool) -> Self {
         self.verified = verified;
 
         self
@@ -120,7 +120,7 @@ impl<'a> NewUser<'a> {
     /// # Arugments
     ///
     /// * `accepts_gifts` - Whther or not the user accepts gifts
-    pub fn with_accepts_gifts(mut self, accepts_gifts:: bool) -> Self {
+    pub fn with_accepts_gifts(mut self, accepts_gifts: bool) -> Self {
         self.accepts_gifts = accepts_gifts;
 
         self
@@ -242,12 +242,22 @@ impl<'a> OauthConnection for RedditConnection<'a> {
     }
 }
 
-/// Role represents a non-exclusionary role pertaining to a given user (i.e.,
+/// Role represents an exclusive, individual role.
+pub enum Role {
+    Administrator,
+    Moderator,
+    VIP,
+    Protected,
+    Subscriber,
+    Bot
+}
+
+/// RoleEntry represents a non-exclusionary role pertaining to a given user (i.e.,
 /// a user may have no roles, or all possible roles).
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
 #[belongs_to(User)]
 #[table_name = "roles"]
-pub struct Role {
+pub struct RoleEntry {
     /// A unique identifier assigned to the role
     id: u32,
 
@@ -271,4 +281,32 @@ pub struct Role {
 
 	/// Whether or not this user is a bot
 	bot: bool,
+}
+
+impl RoleEntry {
+    /// Gets the ID of the user that the role entry is concerning.
+    pub fn concerns(&self) -> u32 {
+        self.user_id
+    }
+
+    /// Gets the identifier associated with the unique role entry.
+    pub fn entry_id(&self) -> u32 {
+        self.id
+    }
+
+    /// Determines whether or not the role entry has a given role.
+    ///
+    /// # Arguments
+    ///
+    /// * `role` - The role that should exist inside the role entry.
+    pub fn has_role(&self, role: Role) -> bool {
+        match role {
+            Role::Administrator => self.administrator,
+            Role::Moderator => self.moderator,
+            Role::VIP => self.vip,
+            Role::Protected => self.protected,
+            Role::Subscriber => self.subscriber,
+            Role::Bot => self.bot
+        }
+    }
 }
