@@ -2,7 +2,7 @@ use super::schema::{ids, roles, users};
 use diesel::Insertable;
 use serde::{Deserialize, Serialize};
 
-use std::default::Default;
+use std::{default::Default, fmt, str::FromStr, error::Error};
 
 /// User represents a generic gnome.gg user.
 #[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Debug)]
@@ -251,6 +251,56 @@ pub enum Role {
     Protected,
     Subscriber,
     Bot,
+}
+
+impl fmt::Display for Role {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_str())
+    }
+}
+
+impl Role {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::Administrator => "administrator",
+            Self::Moderator => "moderator",
+            Self::VIP => "vip",
+            Self::Protected => "protected",
+            Self::Subscriber => "subscriber",
+            Self::Bot => "bot",
+        }
+    }
+}
+
+/// ParseRoleError represents an error encountered while converting a string
+/// to a role.
+#[derive(Debug)]
+pub enum ParseRoleError {
+    NoMatchingRole
+}
+
+impl fmt::Display for ParseRoleError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "no role matches the provided string")
+    }
+}
+
+impl Error for ParseRoleError {}
+
+impl FromStr for Role {
+    type Err = ParseRoleError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "administrator" => Ok(Self::Administrator),
+            "moderator" => Ok(Self::Moderator),
+            "vip" => Ok(Self::VIP),
+            "protected" => Ok(Self::Protected),
+            "subscriber" => Ok(Self::Subscriber),
+            "bot" => Ok(Self::Bot),
+            _ => Err(ParseRoleError::NoMatchingRole)
+        }
+    }
 }
 
 /// RoleEntry represents a non-exclusionary role pertaining to a given user (i.e.,
