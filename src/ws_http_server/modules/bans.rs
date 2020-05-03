@@ -1,3 +1,4 @@
+use actix_web::{web::{Path, Json, Data, HttpRequest}, Scope};
 use chrono::Utc;
 use diesel::{
     mysql::MysqlConnection, result::Error as DieselError, ExpressionMethods, QueryDsl, RunQueryDsl,
@@ -11,6 +12,22 @@ use super::super::super::spec::{
     ban::{Ban, NewBan},
     schema::bans,
 };
+
+/// Builds an actix service group encompassing each of the HTTP routes
+/// designated by the bans module.
+pub(crate) fn build_service_group() -> Scope {
+    Scope::new("/bans")
+}
+
+/// Gets a list of bans corresponding to the specified user.
+/*#[get("/{user_id}")]
+pub async fn user_bans<'a>(
+    bans: Data<Hybrid<'a>>,
+    req: HttpRequest,
+    user_id: Path<u32>,
+) -> Result<Json<Vec<Ban>>, ProviderError> {
+    
+}*/
 
 /// BanQuery represents a query for a ban based on its IP or corresponding user
 /// ID.
