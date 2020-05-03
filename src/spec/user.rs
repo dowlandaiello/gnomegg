@@ -1,4 +1,4 @@
-use super::schema::{ids, users, roles};
+use super::schema::{ids, roles, users};
 use diesel::Insertable;
 use serde::{Deserialize, Serialize};
 
@@ -243,13 +243,14 @@ impl<'a> OauthConnection for RedditConnection<'a> {
 }
 
 /// Role represents an exclusive, individual role.
+#[derive(PartialEq)]
 pub enum Role {
     Administrator,
     Moderator,
     VIP,
     Protected,
     Subscriber,
-    Bot
+    Bot,
 }
 
 /// RoleEntry represents a non-exclusionary role pertaining to a given user (i.e.,
@@ -259,38 +260,38 @@ pub enum Role {
 #[table_name = "roles"]
 pub struct RoleEntry {
     /// A unique identifier assigned to the role
-    id: u32,
+    id: u64,
 
     /// The ID of the user associated with the role
-    user_id: u32,
+    user_id: u64,
 
-	/// Whether or not this user is an administrator
-	administrator: bool,
+    /// Whether or not this user is an administrator
+    administrator: bool,
 
-	/// Whether or not this user is a moderator
-	moderator: bool,
+    /// Whether or not this user is a moderator
+    moderator: bool,
 
-	/// Whether or not this user is a VIP
-	vip: bool,
+    /// Whether or not this user is a VIP
+    vip: bool,
 
-	/// Whether or not this user is protected
-	protected: bool,
+    /// Whether or not this user is protected
+    protected: bool,
 
-	/// Whether or not this user is a subscriber
-	subscriber: bool,
+    /// Whether or not this user is a subscriber
+    subscriber: bool,
 
-	/// Whether or not this user is a bot
-	bot: bool,
+    /// Whether or not this user is a bot
+    bot: bool,
 }
 
 impl RoleEntry {
     /// Gets the ID of the user that the role entry is concerning.
-    pub fn concerns(&self) -> u32 {
+    pub fn concerns(&self) -> u64 {
         self.user_id
     }
 
     /// Gets the identifier associated with the unique role entry.
-    pub fn entry_id(&self) -> u32 {
+    pub fn entry_id(&self) -> u64 {
         self.id
     }
 
@@ -306,7 +307,70 @@ impl RoleEntry {
             Role::VIP => self.vip,
             Role::Protected => self.protected,
             Role::Subscriber => self.subscriber,
-            Role::Bot => self.bot
+            Role::Bot => self.bot,
+        }
+    }
+}
+
+/// NewRoleEntry represents a request to create a new role entry for some user.
+#[derive(Insertable, Serialize, Deserialize, PartialEq, Debug, Default)]
+#[table_name = "roles"]
+pub struct NewRoleEntry {
+    /// The ID of the user associated with the role
+    user_id: u64,
+
+    /// Whether or not this user is an administrator
+    administrator: bool,
+
+    /// Whether or not this user is a moderator
+    moderator: bool,
+
+    /// Whether or not this user is a VIP
+    vip: bool,
+
+    /// Whether or not this user is protected
+    protected: bool,
+
+    /// Whether or not this user is a subscriber
+    subscriber: bool,
+
+    /// Whether or not this user is a bot
+    bot: bool,
+}
+
+impl NewRoleEntry {
+    /// Creates a new role entry with the given user and roles.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user who shall be targeted by this role
+    /// entry
+    /// * `roles` - The roles that should be assigned to the user
+    pub fn new(user_id: u64, roles: &[Role]) -> Self {
+        Self {
+            user_id,
+            administrator: roles.contains(&Role::Administrator),
+            moderator: roles.contains(&Role::Moderator),
+            vip: roles.contains(&Role::VIP),
+            protected: roles.contains(&Role::Protected),
+            subscriber: roles.contains(&Role::Subscriber),
+            bot: roles.contains(&Role::Bot),
+        }
+    }
+
+    /// Determines whether or not the role entry has a given role.
+    ///
+    /// # Arguments
+    ///
+    /// * `role` - The role that should exist inside the role entry.
+    pub fn has_role(&self, role: Role) -> bool {
+        match role {
+            Role::Administrator => self.administrator,
+            Role::Moderator => self.moderator,
+            Role::VIP => self.vip,
+            Role::Protected => self.protected,
+            Role::Subscriber => self.subscriber,
+            Role::Bot => self.bot,
         }
     }
 }
