@@ -49,6 +49,7 @@ table! {
 
 table! {
     roles (user_id) {
+        id -> Unsigned<Bigint>,
         user_id -> Unsigned<Bigint>,
         administrator -> Nullable<Bool>,
         moderator -> Nullable<Bool>,

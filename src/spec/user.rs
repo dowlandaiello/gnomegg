@@ -1,4 +1,4 @@
-use super::schema::{ids, users};
+use super::schema::{ids, users, roles};
 use diesel::Insertable;
 use serde::{Deserialize, Serialize};
 
@@ -240,4 +240,13 @@ impl<'a> OauthConnection for RedditConnection<'a> {
     fn id_hash(&self) -> &[u8] {
         self.hash.as_bytes()
     }
+}
+
+/// Role represents a non-exclusionary role pertaining to a given user (i.e.,
+/// a user may have no roles, or all possible roles).
+#[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
+#[belongs_to(User)]
+#[table_name = "roles"]
+pub struct Role {
+    user_id: u32,
 }
