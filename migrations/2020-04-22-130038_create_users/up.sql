@@ -102,6 +102,9 @@ CREATE TABLE discord_connected (
 
 -- Permissions for each user registered for gnome.gg
 CREATE TABLE roles (
+	-- A unique ID associated with this role
+	id SERIAL,
+
 	-- The ID for the user whose roles should be noted
 	user_id BIGINT UNSIGNED NOT NULL UNIQUE PRIMARY KEY,
 
