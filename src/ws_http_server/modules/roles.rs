@@ -1,4 +1,8 @@
-use super::{super::super::spec::user::Role, Cache, ProviderError};
+use super::{
+    super::super::spec::{schema::roles, user::Role},
+    Cache, Persistent, ProviderError,
+};
+use diesel::{QueryDsl, RunQueryDsl};
 
 /// Provider represents an arbitrary provider of the roles lib API.
 /// The roles API is responsible for managing roles corresponding to certain
@@ -126,6 +130,22 @@ impl<'a> Provider for Cache<'a> {
                     .filter_map(|str_role| str_role.parse().ok())
                     .collect()
             })
-        .map_err(|e| e.into())
+            .map_err(|e| e.into())
+    }
+}
+
+impl<'a> Provider for Persistent<'a> {
+    /// Determines whether or not a user with the given user ID has the given
+    /// role.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose role should be checked
+    /// * `role` - The role that the user should have
+    fn user_has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
+        roles::dsl::roles
+            .find(user_id)
+            .load::<Role>(self.connection)
+            .has_role(role)
     }
 }

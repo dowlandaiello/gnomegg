@@ -2,7 +2,7 @@ use super::schema::{ids, roles, users};
 use diesel::Insertable;
 use serde::{Deserialize, Serialize};
 
-use std::{default::Default, fmt, str::FromStr, error::Error};
+use std::{default::Default, error::Error, fmt, str::FromStr};
 
 /// User represents a generic gnome.gg user.
 #[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Debug)]
@@ -276,7 +276,7 @@ impl Role {
 /// to a role.
 #[derive(Debug)]
 pub enum ParseRoleError {
-    NoMatchingRole
+    NoMatchingRole,
 }
 
 impl fmt::Display for ParseRoleError {
@@ -298,7 +298,7 @@ impl FromStr for Role {
             "protected" => Ok(Self::Protected),
             "subscriber" => Ok(Self::Subscriber),
             "bot" => Ok(Self::Bot),
-            _ => Err(ParseRoleError::NoMatchingRole)
+            _ => Err(ParseRoleError::NoMatchingRole),
         }
     }
 }
@@ -316,22 +316,22 @@ pub struct RoleEntry {
     user_id: u64,
 
     /// Whether or not this user is an administrator
-    administrator: bool,
+    administrator: Option<bool>,
 
     /// Whether or not this user is a moderator
-    moderator: bool,
+    moderator: Option<bool>,
 
     /// Whether or not this user is a VIP
-    vip: bool,
+    vip: Option<bool>,
 
     /// Whether or not this user is protected
-    protected: bool,
+    protected: Option<bool>,
 
     /// Whether or not this user is a subscriber
-    subscriber: bool,
+    subscriber: Option<bool>,
 
     /// Whether or not this user is a bot
-    bot: bool,
+    bot: Option<bool>,
 }
 
 impl RoleEntry {
@@ -352,12 +352,12 @@ impl RoleEntry {
     /// * `role` - The role that should exist inside the role entry.
     pub fn has_role(&self, role: &Role) -> bool {
         match role {
-            Role::Administrator => self.administrator,
-            Role::Moderator => self.moderator,
-            Role::VIP => self.vip,
-            Role::Protected => self.protected,
-            Role::Subscriber => self.subscriber,
-            Role::Bot => self.bot,
+            Role::Administrator => self.administrator.unwrap_or(false),
+            Role::Moderator => self.moderator.unwrap_or(false),
+            Role::VIP => self.vip.unwrap_or(false),
+            Role::Protected => self.protected.unwrap_or(false),
+            Role::Subscriber => self.subscriber.unwrap_or(false),
+            Role::Bot => self.bot.unwrap_or(false),
         }
     }
 }
@@ -370,22 +370,22 @@ pub struct NewRoleEntry {
     user_id: u64,
 
     /// Whether or not this user is an administrator
-    administrator: bool,
+    administrator: Option<bool>,
 
     /// Whether or not this user is a moderator
-    moderator: bool,
+    moderator: Option<bool>,
 
     /// Whether or not this user is a VIP
-    vip: bool,
+    vip: Option<bool>,
 
     /// Whether or not this user is protected
-    protected: bool,
+    protected: Option<bool>,
 
     /// Whether or not this user is a subscriber
-    subscriber: bool,
+    subscriber: Option<bool>,
 
     /// Whether or not this user is a bot
-    bot: bool,
+    bot: Option<bool>,
 }
 
 impl NewRoleEntry {
@@ -399,12 +399,12 @@ impl NewRoleEntry {
     pub fn new(user_id: u64, roles: &[Role]) -> Self {
         Self {
             user_id,
-            administrator: roles.contains(&Role::Administrator),
-            moderator: roles.contains(&Role::Moderator),
-            vip: roles.contains(&Role::VIP),
-            protected: roles.contains(&Role::Protected),
-            subscriber: roles.contains(&Role::Subscriber),
-            bot: roles.contains(&Role::Bot),
+            administrator: Some(roles.contains(&Role::Administrator)),
+            moderator: Some(roles.contains(&Role::Moderator)),
+            vip: Some(roles.contains(&Role::VIP)),
+            protected: Some(roles.contains(&Role::Protected)),
+            subscriber: Some(roles.contains(&Role::Subscriber)),
+            bot: Some(roles.contains(&Role::Bot)),
         }
     }
 
@@ -415,12 +415,12 @@ impl NewRoleEntry {
     /// * `role` - The role that should exist inside the role entry.
     pub fn has_role(&self, role: &Role) -> bool {
         match role {
-            Role::Administrator => self.administrator,
-            Role::Moderator => self.moderator,
-            Role::VIP => self.vip,
-            Role::Protected => self.protected,
-            Role::Subscriber => self.subscriber,
-            Role::Bot => self.bot,
+            Role::Administrator => self.administrator.unwrap_or(false),
+            Role::Moderator => self.moderator.unwrap_or(false),
+            Role::VIP => self.vip.unwrap_or(false),
+            Role::Protected => self.protected.unwrap_or(false),
+            Role::Subscriber => self.subscriber.unwrap_or(false),
+            Role::Bot => self.bot.unwrap_or(false),
         }
     }
 }
