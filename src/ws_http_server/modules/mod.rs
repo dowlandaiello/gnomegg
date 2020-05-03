@@ -1,4 +1,4 @@
-use diesel::{result::Error as DieselError, mysql::MysqlConnection};
+use diesel::{mysql::MysqlConnection, result::Error as DieselError};
 use redis::{Connection, RedisError};
 use serde_json::Error as SerdeError;
 
