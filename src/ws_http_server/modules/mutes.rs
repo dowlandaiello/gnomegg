@@ -610,9 +610,9 @@ impl<'a> Provider for Hybrid<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::super::spec::user::NewUser, *};
+    use super::{super::super::super::spec::{user::NewUser, schema::users}, *};
 
-    use diesel::connection::Connection;
+    use diesel::{connection::Connection, ExpressionMethods};
     use dotenv;
     use std::{default::Default, env};
 
@@ -626,11 +626,25 @@ mod tests {
                 "DATABASE_URL must be set in a .env file for test to complete successfully",
             ))?;
 
+        // Register MrMouton as a user so that we can register a mapping
+        // between the username and ID
+        diesel::replace_into(users::table)
+            .values(NewUser::default().with_username("MrMouton"))
+            .execute(&persistent_conn)?;
+
+        // Get MrMouton's ID for easy testing (so we can ensure that a
+        // combination in the name resolver gets resolved correctly in the
+        // future)
+        let id = users::dsl::users
+            .filter(users::dsl::username.eq("MrMouton"))
+            .select(users::dsl::id)
+            .first(&persistent_conn)?;
+
         // Mute MrMouton for 2048 nanoseconds
         let mut mutes = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
-        mutes.set_muted(42069, true, Some(1_000_000))?;
+        mutes.set_muted(id, true, Some(1_000_000_000))?;
 
-        assert_eq!(mutes.is_muted(42069)?, true);
+        assert_eq!(mutes.is_muted(id)?, true);
 
         Ok(())
     }
@@ -641,11 +655,10 @@ mod tests {
 
         let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
 
-        let mut names = Cache::new(&mut conn);
-        names.set_combination("MrMouton", 42069)?;
+        let mut mutes = Cache::new(&mut conn);
+        mutes.set_muted(42069, true, Some(1_000_000))?;
 
-        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
-        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+        assert_eq!(mutes.is_muted(42069)?, true);
 
         Ok(())
     }
@@ -675,11 +688,10 @@ mod tests {
             .first(&persistent_conn)?;
 
         // Make a name resolver backend based on the MySQL database conn adapter
-        let mut names = Persistent::new(&persistent_conn);
-        names.set_combination("MrMouton", id)?;
+        let mut mutes = Persistent::new(&persistent_conn);
+        mutes.set_muted(id, true, Some(1_000_000_000))?;
 
-        assert_eq!(names.username_for(id)?.unwrap(), "MrMouton");
-        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), id);
+        assert_eq!(mutes.is_muted(id)?, true);
 
         Ok(())
     }

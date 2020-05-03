@@ -190,7 +190,7 @@ impl<'a> Provider for Cache<'a> {
     /// let mut conn = client.get_connection()?;
     ///
     /// let mut names = Cache::new(&mut conn);
-    /// assert_eq!(names.set_combination("MrMouton", 69410).unwrap(), ());
+    /// names.set_combination("MrMouton", 69420)?;
     /// assert_eq!(names.username_for(69420).unwrap().unwrap(), "MrMouton".to_owned());
     /// Ok(())
     /// # }
@@ -399,11 +399,25 @@ mod tests {
                 "DATABASE_URL must be set in a .env file for test to complete successfully",
             ))?;
 
-        let mut names = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
-        names.set_combination("MrMouton", 42069)?;
+        // Register MrMouton as a user so that we can register a mapping
+        // between the username and ID
+        diesel::replace_into(users::table)
+            .values(NewUser::default().with_username("MrMouton"))
+            .execute(&persistent_conn)?;
 
-        assert_eq!(names.username_for(42069)?.unwrap(), "MrMouton");
-        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), 42069);
+        // Get MrMouton's ID for easy testing (so we can ensure that a
+        // combination in the name resolver gets resolved correctly in the
+        // future)
+        let id = users::dsl::users
+            .filter(users::dsl::username.eq("MrMouton"))
+            .select(users::dsl::id)
+            .first(&persistent_conn)?;
+
+        let mut names = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
+        names.set_combination("MrMouton", id)?;
+
+        assert_eq!(names.username_for(id)?.unwrap(), "MrMouton");
+        assert_eq!(names.user_id_for("MrMouton")?.unwrap(), id);
 
         Ok(())
     }
