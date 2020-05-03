@@ -243,7 +243,7 @@ impl<'a> OauthConnection for RedditConnection<'a> {
 }
 
 /// Role represents an exclusive, individual role.
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Role {
     Administrator,
     Moderator,
@@ -300,7 +300,7 @@ impl RoleEntry {
     /// # Arguments
     ///
     /// * `role` - The role that should exist inside the role entry.
-    pub fn has_role(&self, role: Role) -> bool {
+    pub fn has_role(&self, role: &Role) -> bool {
         match role {
             Role::Administrator => self.administrator,
             Role::Moderator => self.moderator,
@@ -363,7 +363,7 @@ impl NewRoleEntry {
     /// # Arguments
     ///
     /// * `role` - The role that should exist inside the role entry.
-    pub fn has_role(&self, role: Role) -> bool {
+    pub fn has_role(&self, role: &Role) -> bool {
         match role {
             Role::Administrator => self.administrator,
             Role::Moderator => self.moderator,

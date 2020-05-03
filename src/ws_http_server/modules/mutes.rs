@@ -1,10 +1,10 @@
-use diesel::{mysql::MysqlConnection, result::Error as DieselError, QueryDsl, RunQueryDsl};
-use redis::{Connection, RedisError};
-use serde_json::Error as SerdeError;
+use diesel::{result::Error as DieselError, QueryDsl, RunQueryDsl};
+use redis::RedisError;
 
-use std::{error::Error, fmt};
-
-use super::super::super::spec::{mute::Mute, schema::mutes};
+use super::{
+    super::super::spec::{mute::Mute, schema::mutes},
+    Cache, Persistent, ProviderError,
+};
 
 /// Provider represents an arbitrary backend for the mutes service that may or
 /// may not present an accurate or up to date view of the entire history of
@@ -98,109 +98,6 @@ pub trait Provider {
     /// # }
     /// ```
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError>;
-}
-
-/// ProviderError represents any error emitted by a mute backend.
-#[derive(Debug)]
-pub enum ProviderError {
-    RedisError(RedisError),
-    SerdeError(SerdeError),
-    DieselError(DieselError),
-    MissingArgument { arg: &'static str },
-}
-
-impl fmt::Display for ProviderError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RedisError(err) => write!(f, "the provider encountered a redis error: {}", err),
-            Self::SerdeError(err) => {
-                write!(f, "the provider encountered a serialization error: {}", err)
-            }
-            Self::DieselError(err) => {
-                write!(f, "the provider encountered a database error: {}", err)
-            }
-            Self::MissingArgument { arg } => {
-                write!(f, "malformed query; missing argument: {}", arg)
-            }
-        }
-    }
-}
-
-impl Error for ProviderError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::RedisError(e) => Some(e),
-            Self::SerdeError(e) => Some(e),
-            Self::DieselError(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<RedisError> for ProviderError {
-    /// Constructs a provider error from the given redis error.
-    ///
-    /// # Arguments
-    ///
-    /// * `e` - The redis error that should be wrapped in the ProviderError
-    fn from(e: RedisError) -> Self {
-        Self::RedisError(e)
-    }
-}
-
-impl From<SerdeError> for ProviderError {
-    /// Constructs a provider error from the given serde error.
-    ///
-    /// # Arguments
-    ///
-    /// * `e` - The serde error that should be wrapped in the ProviderError
-    fn from(e: SerdeError) -> Self {
-        Self::SerdeError(e)
-    }
-}
-
-impl From<DieselError> for ProviderError {
-    /// Cosntructs a provider error from the given diesel error.
-    ///
-    /// # Arguments
-    ///
-    /// * `e` - The diesel error that should be wrapped in the ProviderError
-    fn from(e: DieselError) -> Self {
-        Self::DieselError(e)
-    }
-}
-
-/// Cache is a connection helper to a redis database running remotely or
-/// locally.
-pub struct Cache<'a> {
-    connection: &'a mut Connection,
-}
-
-impl<'a> Cache<'a> {
-    /// Creates a new cache connection with the given remote database address.
-    ///
-    /// # Arguments
-    ///
-    /// * `database_address` - The address corresponding to the remote redis
-    /// session, formatted as such: 127.0.0.1:6379
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use gnomegg::ws_http_server::modules::mutes::{Cache, Provider};
-    /// # use std::error::Error;
-    ///
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// let client = redis::Client::open("redis://127.0.0.1/")?;
-    /// let mut conn = client.get_connection()?;
-    ///
-    /// let cfg = Cache::new(&mut conn);
-    /// Ok(())
-    /// # }
-    /// ```
-    pub fn new(connection: &'a mut Connection) -> Self {
-        Self { connection }
-    }
 }
 
 impl<'a> Provider for Cache<'a> {
@@ -332,18 +229,6 @@ impl<'a> Provider for Cache<'a> {
     /// ```
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError> {
         Ok(self.get_mute(user_id)?.map_or(false, |mute| mute.active()))
-    }
-}
-
-/// Persistent is a mysql-based persistence layer for the gnomegg mutes backend.
-pub struct Persistent<'a> {
-    connection: &'a MysqlConnection,
-}
-
-impl<'a> Persistent<'a> {
-    /// Creates a new connection to the mysql backend, and provides
-    pub fn new(connection: &'a MysqlConnection) -> Self {
-        Self { connection }
     }
 }
 
@@ -610,7 +495,10 @@ impl<'a> Provider for Hybrid<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::super::super::spec::{user::NewUser, schema::users}, *};
+    use super::{
+        super::super::super::spec::{schema::users, user::NewUser},
+        *,
+    };
 
     use diesel::{connection::Connection, ExpressionMethods};
     use dotenv;

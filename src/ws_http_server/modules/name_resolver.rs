@@ -1,53 +1,14 @@
 use diesel::{
-    expression_methods::ExpressionMethods, result::Error as DieselError, MysqlConnection, QueryDsl,
-    RunQueryDsl,
-};
-use redis::{Connection, RedisError};
-
-use super::super::super::spec::{
-    schema::{ids, users},
-    user::NewIdMapping,
+    expression_methods::ExpressionMethods, result::Error as DieselError, QueryDsl, RunQueryDsl,
 };
 
-use std::{error::Error, fmt};
-
-/// ProviderError represents any error emitted by a name resolution provider.
-#[derive(Debug)]
-pub enum ProviderError {
-    RedisError(RedisError),
-    DieselError(DieselError),
-}
-
-impl fmt::Display for ProviderError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "the name resolution service provider encountered an error: {}",
-            self.source().map(|e| format!("{}", e)).unwrap_or_default()
-        )
-    }
-}
-
-impl Error for ProviderError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::RedisError(e) => Some(e),
-            Self::DieselError(e) => Some(e),
-        }
-    }
-}
-
-impl From<RedisError> for ProviderError {
-    fn from(e: RedisError) -> Self {
-        Self::RedisError(e)
-    }
-}
-
-impl From<DieselError> for ProviderError {
-    fn from(e: DieselError) -> Self {
-        Self::DieselError(e)
-    }
-}
+use super::{
+    super::super::spec::{
+        schema::{ids, users},
+        user::NewIdMapping,
+    },
+    Cache, Persistent, ProviderError,
+};
 
 /// Provider represents an arbitrary backend for the name resolution service.
 pub trait Provider {
@@ -75,39 +36,6 @@ pub trait Provider {
     /// * `username` - The username for which a corresponding user ID should be
     /// obtained
     fn set_combination(&mut self, username: &str, user_id: u64) -> Result<(), ProviderError>;
-}
-
-/// Cache implements a name resolver based on a locally or remotely-running
-/// redis instance.
-pub struct Cache<'a> {
-    connection: &'a mut Connection,
-}
-
-impl<'a> Cache<'a> {
-    /// Creates a new cache connection with the given remote database connection.
-    ///
-    /// # Arguments
-    ///
-    /// * `connection` - The redis connection over which data should be
-    /// requested or sent
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use gnomegg::ws_http_server::modules::name_resolver::{Cache};
-    /// # use std::error::Error;
-    ///
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// let client = redis::Client::open("redis://127.0.0.1/")?;
-    /// let mut conn = client.get_connection()?;
-    ///
-    /// let mut names = Cache::new(&mut conn);
-    /// Ok(())
-    /// # }
-    /// ```
-    pub fn new(connection: &'a mut Connection) -> Self {
-        Self { connection }
-    }
 }
 
 impl<'a> Provider for Cache<'a> {
@@ -203,24 +131,6 @@ impl<'a> Provider for Cache<'a> {
             .arg(username)
             .query(self.connection)
             .map_err(|e| e.into())
-    }
-}
-
-/// Persistent is a mysql-based persistence layer for the gnomegg name
-/// resolution service.
-pub struct Persistent<'a> {
-    connection: &'a MysqlConnection,
-}
-
-impl<'a> Persistent<'a> {
-    /// Creats a new persistence service helper with the given connection.
-    ///
-    /// # Arguments
-    ///
-    /// * `connection` - The SQL connection that should be used to send and
-    /// retreieve data.
-    pub fn new(connection: &'a MysqlConnection) -> Self {
-        Self { connection }
     }
 }
 
