@@ -1,8 +1,13 @@
 use super::schema::{ids, roles, users};
-use diesel::Insertable;
+use diesel::{
+    expression::BoxableExpression,
+    mysql::Mysql,
+    sql_types::{Bool, Nullable},
+    Column, Insertable,
+};
 use serde::{Deserialize, Serialize};
 
-use std::{default::Default, error::Error, fmt, str::FromStr};
+use std::{convert::Into, default::Default, error::Error, fmt, str::FromStr};
 
 /// User represents a generic gnome.gg user.
 #[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Debug)]
@@ -268,6 +273,19 @@ impl Role {
             Self::Protected => "protected",
             Self::Subscriber => "subscriber",
             Self::Bot => "bot",
+        }
+    }
+}
+
+impl From<&Role> for Box<dyn BoxableExpression<roles::table, Mysql, SqlType = Nullable<Bool>>> {
+    fn from(r: &Role) -> Self {
+        match r {
+            Role::Administrator => Box::new(roles::dsl::administrator),
+            Role::Moderator => Box::new(roles::dsl::moderator),
+            Role::VIP => Box::new(roles::dsl::vip),
+            Role::Protected => Box::new(roles::dsl::protected),
+            Role::Subscriber => Box::new(roles::dsl::subscriber),
+            Role::Bot => Box::new(roles::dsl::bot),
         }
     }
 }

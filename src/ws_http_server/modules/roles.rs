@@ -1,8 +1,11 @@
 use super::{
-    super::super::spec::{schema::roles, user::Role},
+    super::super::spec::{
+        schema::roles,
+        user::{Role, RoleEntry},
+    },
     Cache, Persistent, ProviderError,
 };
-use diesel::{QueryDsl, RunQueryDsl};
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, expression::BoxableExpression, mysql::Mysql, sql_types::{Nullable, Bool}};
 
 /// Provider represents an arbitrary provider of the roles lib API.
 /// The roles API is responsible for managing roles corresponding to certain
@@ -145,7 +148,23 @@ impl<'a> Provider for Persistent<'a> {
     fn user_has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
         roles::dsl::roles
             .find(user_id)
-            .load::<Role>(self.connection)
-            .has_role(role)
+            .first::<RoleEntry>(self.connection)
+            .map(|role_entry| role_entry.has_role(role))
+            .map_err(|e| e.into())
+    }
+
+    /// Assigns the given role to a user without removing any existing roles
+    /// from the aforementioned user.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose role should be checked
+    /// * `role` - The role that the user should have
+    fn give_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError> {
+        diesel::replace_into(roles::table)
+            .values(role_column!(role).eq(Some(true)))
+            .execute(self.connection)
+            .map(|_| ())
+            .map_err(|e| e.into())
     }
 }
