@@ -7,7 +7,7 @@ use super::{
         schema::{ids, users},
         user::NewIdMapping,
     },
-    Cache, Persistent, ProviderError,
+    Cache, Persistent, ProviderError, Hybrid,
 };
 
 /// Provider represents an arbitrary backend for the name resolution service.
@@ -193,52 +193,6 @@ impl<'a> Provider for Persistent<'a> {
             .execute(self.connection)
             .map(|_| ())
             .map_err(|e| e.into())
-    }
-}
-
-/// Hybrid implements a provider utilizing both persistent and cached name
-/// resolution.
-pub struct Hybrid<'a> {
-    /// The cached name storage layer
-    cache: Cache<'a>,
-
-    /// The persistent name storage layer
-    persistent: Persistent<'a>,
-}
-
-impl<'a> Hybrid<'a> {
-    /// Creates a new hybrid name resolution service with the provided
-    /// persistent and cached helper layers.
-    ///
-    /// # Arguments
-    ///
-    /// * `cache` - The redis caching helper to use
-    /// * `persistent` - The MySQL storage helper to use
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use gnomegg::ws_http_server::modules::name_resolver::{Hybrid, Cache, Persistent, Provider};
-    /// use dotenv;
-    /// use std::env;
-    /// # use diesel::{mysql::{MysqlConnection}, connection::Connection};
-    /// # use std::error::Error;
-    ///
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// dotenv::dotenv()?;
-    ///
-    /// let client = redis::Client::open("redis://127.0.0.1/")?;
-    /// let mut conn = client.get_connection()?;
-    /// let persistent_conn = MysqlConnection::establish(&env::var("DATABASE_URL").expect("DATABASE_URL must be set in a .env file for test to complete successfully"))?;
-    ///
-    /// let cached_names = Cache::new(&mut conn);
-    /// let persisted_names = Persistent::new(&persistent_conn);
-    /// let all_names = Hybrid::new(cached_names, persisted_names);
-    /// Ok(())
-    /// # }
-    /// ```
-    pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
-        Self { cache, persistent }
     }
 }
 

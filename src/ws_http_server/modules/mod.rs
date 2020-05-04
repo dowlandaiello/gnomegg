@@ -109,3 +109,26 @@ impl<'a> Persistent<'a> {
         Self { connection }
     }
 }
+
+/// Hybrid implements a provider utilizing both persistent and cached name
+/// resolution.
+pub struct Hybrid<'a> {
+    /// The cached name storage layer
+    cache: Cache<'a>,
+
+    /// The persistent name storage layer
+    persistent: Persistent<'a>,
+}
+
+impl<'a> Hybrid<'a> {
+    /// Creates a new hybrid name resolution service with the provided
+    /// persistent and cached helper layers.
+    ///
+    /// # Arguments
+    ///
+    /// * `cache` - The redis caching helper to use
+    /// * `persistent` - The MySQL storage helper to use
+    pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
+        Self { cache, persistent }
+    }
+}

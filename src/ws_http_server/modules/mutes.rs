@@ -3,7 +3,7 @@ use redis::RedisError;
 
 use super::{
     super::super::spec::{mute::Mute, schema::mutes},
-    Cache, Persistent, ProviderError,
+    Cache, Persistent, ProviderError, Hybrid,
 };
 
 /// Provider represents an arbitrary backend for the mutes service that may or
@@ -361,28 +361,6 @@ impl<'a> Provider for Persistent<'a> {
     /// ```
     fn is_muted(&mut self, user_id: u64) -> Result<bool, ProviderError> {
         Ok(self.get_mute(user_id)?.map_or(false, |mute| mute.active()))
-    }
-}
-
-/// Hybrid manages mutes across redis and MySQL.
-pub struct Hybrid<'a> {
-    /// The cached mutes storage layer
-    cache: Cache<'a>,
-
-    /// The persistent mutes storage layer
-    persistent: Persistent<'a>,
-}
-
-impl<'a> Hybrid<'a> {
-    /// Creates a new hybrid mutes storage service with the provided persistent
-    /// and cached mutes helper layers.
-    ///
-    /// # Arguments
-    ///
-    /// * `cache` - The redis caching helper to use
-    /// * `persistent` - The MySQL storage helper to use
-    pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
-        Self { cache, persistent }
     }
 }
 

@@ -4,7 +4,7 @@ use diesel::{
     mysql::Mysql,
     query_builder::SqlQuery,
     sql_types::{Bool, Nullable},
-    Column, Insertable,
+    Insertable,
 };
 use serde::{Deserialize, Serialize};
 
@@ -287,7 +287,8 @@ impl Role {
             "IF EXISTS (SELECT * FROM roles WHERE user_id = {})
                 UPDATE roles SET {} = {} WHERE user_id = {}
             ELSE
-                INSERT INTO roles(user_id, {}) VALUES({}, {})",
+                INSERT INTO roles(user_id, {}) VALUES({}, {})
+            END",
             user_id,
             self.to_str(),
             has_role,
@@ -404,7 +405,7 @@ impl RoleEntry {
 
 impl From<&RoleEntry> for Vec<Role> {
     fn from(entry: &RoleEntry) -> Self {
-        let roles = Vec::new();
+        let mut roles = Vec::new();
 
         if let Some(r) = entry.administrator {
             if r {

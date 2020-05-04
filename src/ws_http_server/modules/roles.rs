@@ -3,12 +3,9 @@ use super::{
         schema::roles,
         user::{Role, RoleEntry},
     },
-    Cache, Persistent, ProviderError,
+    Cache, Hybrid, Persistent, ProviderError,
 };
-use diesel::{
-    OptionalExtension,
-    QueryDsl, RunQueryDsl,
-};
+use diesel::{OptionalExtension, QueryDsl, RunQueryDsl};
 
 /// Provider represents an arbitrary provider of the roles lib API.
 /// The roles API is responsible for managing roles corresponding to certain
@@ -30,7 +27,15 @@ pub trait Provider {
     ///
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
-    fn give_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError>;
+    fn give_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError>;
+
+    /// Assigns multiple roles to a suer at once.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be set
+    /// * `roles` - The roles that should be assigned to the user
+    fn give_roles(&mut self, user_id: u64, roles: &[Role]) -> Result<(), ProviderError>;
 
     /// Removes the given role from the user with the corresponding user_id.
     ///
@@ -38,7 +43,7 @@ pub trait Provider {
     ///
     /// * `user_id` - The ID of the user whose roles should be removed
     /// * `role` - The role that should be removed from the user
-    fn remove_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError>;
+    fn remove_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError>;
 
     /// Removes all of the roles corresponding to the given user, returning
     /// all roles that were removed.
@@ -80,10 +85,25 @@ impl<'a> Provider for Cache<'a> {
     ///
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
-    fn give_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError> {
+    fn give_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError> {
+        self.give_roles(user_id, &[*role])
+    }
+
+    /// Assigns multiple roles to a user at once.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be set
+    /// * `roles` - The roles that should be assigned to the user
+    fn give_roles(&mut self, user_id: u64, roles: &[Role]) -> Result<(), ProviderError> {
         redis::cmd("SADD")
             .arg(format!("roles::{}", user_id))
-            .arg(role.to_str())
+            .arg(
+                roles
+                    .iter()
+                    .map(|role| role.to_str())
+                    .collect::<Vec<&str>>(),
+            )
             .query::<()>(self.connection)
             .map_err(|e| e.into())
     }
@@ -94,7 +114,7 @@ impl<'a> Provider for Cache<'a> {
     ///
     /// * `user_id` - The ID of the user whose roles should be removed
     /// * `role` - The role that should be removed from the user
-    fn remove_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError> {
+    fn remove_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError> {
         redis::cmd("SREM")
             .arg(format!("roles::{}", user_id))
             .arg(role.to_str())
@@ -163,11 +183,48 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
-    fn give_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError> {
+    fn give_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError> {
         role.construct_give_role_statement(user_id, true)
             .execute(self.connection)
             .map(|_| ())
             .map_err(|e| e.into())
+    }
+
+    /// Assigns multiple roles to a suer at once.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be set
+    /// * `roles` - The roles that should be assigned to the user
+    fn give_roles(&mut self, user_id: u64, roles: &[Role]) -> Result<(), ProviderError> {
+        diesel::sql_query(format!(
+            "IF EXISTS (SELECT * FROM roles WHERE user_id = {})
+                 UPDATE roles SET {} WHERE user_id = {}
+             ELSE
+                 INSERT INTO roles(user_id, {}) VALUES({}, {})
+             END",
+            user_id,
+            roles
+                .iter()
+                .map(|role| format!("{} = true", role))
+                .collect::<Vec<String>>()
+                .join(", "),
+            user_id,
+            roles
+                .iter()
+                .map(|role| role.to_str())
+                .collect::<Vec<&str>>()
+                .join(", "),
+            user_id,
+            roles
+                .iter()
+                .map(|_| "true")
+                .collect::<Vec<&str>>()
+                .join(", "),
+        ))
+        .execute(self.connection)
+        .map(|_| ())
+        .map_err(|e| e.into())
     }
 
     /// Removes the given role from the user with the corresponding user_id.
@@ -176,7 +233,7 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `user_id` - The ID of the user whose roles should be removed
     /// * `role` - The role that should be removed from the user
-    fn remove_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError> {
+    fn remove_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError> {
         role.construct_give_role_statement(user_id, false)
             .execute(self.connection)
             .map(|_| ())
@@ -212,5 +269,96 @@ impl<'a> Provider for Persistent<'a> {
                 .optional()?
                 .unwrap_or_default(),
         ))
+    }
+}
+
+impl<'a> Provider for Hybrid<'a> {
+    /// Determines whether or not a user with the given user ID has the given
+    /// role.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose role should be checked
+    /// * `role` - The role that the user should have
+    fn user_has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
+        self.cache.user_has_role(user_id, role).or_else(|_| {
+            self.persistent
+                .user_has_role(user_id, role)
+                .and_then(|has_role| {
+                    {
+                        if has_role {
+                            self.cache.give_role(user_id, role)
+                        } else {
+                            self.cache.remove_role(user_id, role)
+                        }
+                    }
+                    .map(|_| has_role)
+                })
+        })
+    }
+
+    /// Assigns the given role to a user without removing any existing roles
+    /// from the aforementioned user.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose role should be checked
+    /// * `role` - The role that the user should have
+    fn give_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError> {
+        self.cache
+            .give_role(user_id, role)
+            .and(self.persistent.give_role(user_id, role))
+    }
+
+    /// Assigns multiple roles to a suer at once.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be set
+    /// * `roles` - The roles that should be assigned to the user
+    fn give_roles(&mut self, user_id: u64, roles: &[Role]) -> Result<(), ProviderError> {
+        self.cache
+            .give_roles(user_id, roles)
+            .and(self.persistent.give_roles(user_id, roles))
+    }
+
+    /// Removes the given role from the user with the corresponding user_id.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be removed
+    /// * `role` - The role that should be removed from the user
+    fn remove_role(&mut self, user_id: u64, role: &Role) -> Result<(), ProviderError> {
+        self.cache
+            .remove_role(user_id, role)
+            .and(self.persistent.remove_role(user_id, role))
+    }
+
+    /// Removes all of the roles corresponding to the given user, returning
+    /// all roles that were removed.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be purged
+    fn purge_roles(&mut self, user_id: u64) -> Result<Vec<Role>, ProviderError> {
+        self.cache
+            .purge_roles(user_id)
+            .and(self.persistent.purge_roles(user_id))
+    }
+
+    /// Obtains a list of the roles held by a certain user, indicated by the
+    /// user_id.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be determined
+    fn roles_for_user(&mut self, user_id: u64) -> Result<Vec<Role>, ProviderError> {
+        self.cache.roles_for_user(user_id).or_else(|_| {
+            self.persistent.roles_for_user(user_id).and_then(|roles| {
+                self.cache
+                    .give_roles(user_id, roles.as_slice())
+                    .map(|_| roles)
+            })
+        })
     }
 }

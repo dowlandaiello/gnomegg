@@ -11,7 +11,7 @@ use super::{
         ban::{Ban, NewBan},
         schema::bans,
     },
-    Cache, Persistent, ProviderError,
+    Cache, Persistent, ProviderError, Hybrid
 };
 
 /// Builds an actix service group encompassing each of the HTTP routes
@@ -333,28 +333,6 @@ impl<'a> Provider for Persistent<'a> {
     /// searched for in the database
     fn is_banned(&mut self, query: &BanQuery) -> Result<bool, ProviderError> {
         Ok(self.get_ban(query)?.map_or(false, |ban| ban.active()))
-    }
-}
-
-/// Hybrid manages bans across redis and MySQL.
-pub struct Hybrid<'a> {
-    /// The cached bans storage layer
-    cache: Cache<'a>,
-
-    /// The persistent bans storage layer
-    persistent: Persistent<'a>,
-}
-
-impl<'a> Hybrid<'a> {
-    /// Creates a new hybrid bans storage service with the provided persistent
-    /// and cached bans helper layers.
-    ///
-    /// # Arguments
-    ///
-    /// * `cache` - The redis caching helper to use
-    /// * `persistent` - The MySQL storage helper to use
-    pub fn new(cache: Cache<'a>, persistent: Persistent<'a>) -> Self {
-        Self { cache, persistent }
     }
 }
 
