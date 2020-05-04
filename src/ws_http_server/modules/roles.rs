@@ -5,7 +5,10 @@ use super::{
     },
     Cache, Persistent, ProviderError,
 };
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, expression::BoxableExpression, mysql::Mysql, sql_types::{Nullable, Bool}};
+use diesel::{
+    OptionalExtension,
+    QueryDsl, RunQueryDsl,
+};
 
 /// Provider represents an arbitrary provider of the roles lib API.
 /// The roles API is responsible for managing roles corresponding to certain
@@ -161,10 +164,53 @@ impl<'a> Provider for Persistent<'a> {
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
     fn give_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError> {
-        diesel::replace_into(roles::table)
-            .values(role_column!(role).eq(Some(true)))
+        role.construct_give_role_statement(user_id, true)
             .execute(self.connection)
             .map(|_| ())
             .map_err(|e| e.into())
+    }
+
+    /// Removes the given role from the user with the corresponding user_id.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be removed
+    /// * `role` - The role that should be removed from the user
+    fn remove_role(&mut self, user_id: u64, role: Role) -> Result<(), ProviderError> {
+        role.construct_give_role_statement(user_id, false)
+            .execute(self.connection)
+            .map(|_| ())
+            .map_err(|e| e.into())
+    }
+
+    /// Removes all of the roles corresponding to the given user, returning
+    /// all roles that were removed.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be purged
+    fn purge_roles(&mut self, user_id: u64) -> Result<Vec<Role>, ProviderError> {
+        let roles = self.roles_for_user(user_id)?;
+
+        diesel::delete(roles::table.find(user_id))
+            .execute(self.connection)
+            .map(|_| roles)
+            .map_err(|e| e.into())
+    }
+
+    /// Obtains a list of the roles held by a certain user, indicated by the
+    /// user_id.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The ID of the user whose roles should be determined
+    fn roles_for_user(&mut self, user_id: u64) -> Result<Vec<Role>, ProviderError> {
+        Ok(<Vec<Role> as From<&RoleEntry>>::from(
+            &roles::table
+                .find(user_id)
+                .first::<RoleEntry>(self.connection)
+                .optional()?
+                .unwrap_or_default(),
+        ))
     }
 }

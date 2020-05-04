@@ -2,6 +2,7 @@ use super::schema::{ids, roles, users};
 use diesel::{
     expression::BoxableExpression,
     mysql::Mysql,
+    query_builder::SqlQuery,
     sql_types::{Bool, Nullable},
     Column, Insertable,
 };
@@ -275,6 +276,27 @@ impl Role {
             Self::Bot => "bot",
         }
     }
+
+    /// Constructs a raw SQL query for the Role with the given role status.
+    ///
+    /// # Arguments
+    ///
+    /// * `has_role` - Whether or not the user has the rol
+    pub(crate) fn construct_give_role_statement(&self, user_id: u64, has_role: bool) -> SqlQuery {
+        diesel::sql_query(format!(
+            "IF EXISTS (SELECT * FROM roles WHERE user_id = {})
+                UPDATE roles SET {} = {} WHERE user_id = {}
+            ELSE
+                INSERT INTO roles(user_id, {}) VALUES({}, {})",
+            user_id,
+            self.to_str(),
+            has_role,
+            user_id,
+            self.to_str(),
+            user_id,
+            has_role
+        ))
+    }
 }
 
 impl From<&Role> for Box<dyn BoxableExpression<roles::table, Mysql, SqlType = Nullable<Bool>>> {
@@ -323,7 +345,7 @@ impl FromStr for Role {
 
 /// RoleEntry represents a non-exclusionary role pertaining to a given user (i.e.,
 /// a user may have no roles, or all possible roles).
-#[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
+#[derive(Identifiable, Queryable, Associations, PartialEq, Debug, Default)]
 #[belongs_to(User)]
 #[table_name = "roles"]
 pub struct RoleEntry {
@@ -377,6 +399,50 @@ impl RoleEntry {
             Role::Subscriber => self.subscriber.unwrap_or(false),
             Role::Bot => self.bot.unwrap_or(false),
         }
+    }
+}
+
+impl From<&RoleEntry> for Vec<Role> {
+    fn from(entry: &RoleEntry) -> Self {
+        let roles = Vec::new();
+
+        if let Some(r) = entry.administrator {
+            if r {
+                roles.push(Role::Administrator);
+            }
+        }
+
+        if let Some(r) = entry.moderator {
+            if r {
+                roles.push(Role::Moderator);
+            }
+        }
+
+        if let Some(r) = entry.vip {
+            if r {
+                roles.push(Role::VIP);
+            }
+        }
+
+        if let Some(r) = entry.protected {
+            if r {
+                roles.push(Role::Protected);
+            }
+        }
+
+        if let Some(r) = entry.subscriber {
+            if r {
+                roles.push(Role::Subscriber);
+            }
+        }
+
+        if let Some(r) = entry.bot {
+            if r {
+                roles.push(Role::Bot);
+            }
+        }
+
+        roles
     }
 }
 
