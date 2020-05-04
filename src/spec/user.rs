@@ -284,11 +284,7 @@ impl Role {
     /// * `has_role` - Whether or not the user has the rol
     pub(crate) fn construct_give_role_statement(&self, user_id: u64, has_role: bool) -> SqlQuery {
         diesel::sql_query(format!(
-            "IF EXISTS (SELECT * FROM roles WHERE user_id = {})
-                UPDATE roles SET {} = {} WHERE user_id = {}
-            ELSE
-                INSERT INTO roles(user_id, {}) VALUES({}, {})
-            END",
+            "IF EXISTS (SELECT * FROM roles WHERE user_id = {}) UPDATE roles SET {} = {} WHERE user_id = {} ELSE INSERT INTO roles(user_id, {}) VALUES({}, {}) END",
             user_id,
             self.to_str(),
             has_role,

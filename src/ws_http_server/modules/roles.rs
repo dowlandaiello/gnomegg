@@ -18,7 +18,7 @@ pub trait Provider {
     ///
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
-    fn user_has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError>;
+    fn has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError>;
 
     /// Assigns the given role to a user without removing any existing roles
     /// from the aforementioned user.
@@ -70,7 +70,7 @@ impl<'a> Provider for Cache<'a> {
     ///
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
-    fn user_has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
+    fn has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
         redis::cmd("SISMEMBER")
             .arg(format!("roles::{}", user_id))
             .arg(role.to_str())
@@ -168,7 +168,7 @@ impl<'a> Provider for Persistent<'a> {
     ///
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
-    fn user_has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
+    fn has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
         roles::dsl::roles
             .find(user_id)
             .first::<RoleEntry>(self.connection)
@@ -197,12 +197,29 @@ impl<'a> Provider for Persistent<'a> {
     /// * `user_id` - The ID of the user whose roles should be set
     /// * `roles` - The roles that should be assigned to the user
     fn give_roles(&mut self, user_id: u64, roles: &[Role]) -> Result<(), ProviderError> {
+        println!(
+            "IF EXISTS (SELECT * FROM roles WHERE user_id = {}) UPDATE roles SET {} WHERE user_id = {} ELSE INSERT INTO roles(user_id, {}) VALUES({}, {}) END",
+            user_id,
+            roles
+                .iter()
+                .map(|role| format!("{} = true", role))
+                .collect::<Vec<String>>()
+                .join(", "),
+            user_id,
+            roles
+                .iter()
+                .map(|role| role.to_str())
+                .collect::<Vec<&str>>()
+                .join(", "),
+            user_id,
+            roles
+                .iter()
+                .map(|_| "true")
+                .collect::<Vec<&str>>()
+                .join(", "),
+        );
         diesel::sql_query(format!(
-            "IF EXISTS (SELECT * FROM roles WHERE user_id = {})
-                 UPDATE roles SET {} WHERE user_id = {}
-             ELSE
-                 INSERT INTO roles(user_id, {}) VALUES({}, {})
-             END",
+            "IF EXISTS (SELECT * FROM roles WHERE user_id = {}) UPDATE roles SET {} WHERE user_id = {} ELSE INSERT INTO roles(user_id, {}) VALUES({}, {}) END",
             user_id,
             roles
                 .iter()
@@ -280,10 +297,10 @@ impl<'a> Provider for Hybrid<'a> {
     ///
     /// * `user_id` - The ID of the user whose role should be checked
     /// * `role` - The role that the user should have
-    fn user_has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
-        self.cache.user_has_role(user_id, role).or_else(|_| {
+    fn has_role(&mut self, user_id: u64, role: &Role) -> Result<bool, ProviderError> {
+        self.cache.has_role(user_id, role).or_else(|_| {
             self.persistent
-                .user_has_role(user_id, role)
+                .has_role(user_id, role)
                 .and_then(|has_role| {
                     {
                         if has_role {
@@ -360,5 +377,49 @@ impl<'a> Provider for Hybrid<'a> {
                     .map(|_| roles)
             })
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        super::super::super::spec::{
+            schema::users,
+            user::{NewUser, Role},
+        },
+        *,
+    };
+    use diesel::{mysql::MysqlConnection, Connection, ExpressionMethods};
+
+    use std::{env, error::Error};
+
+    #[test]
+    fn test_hybrid() -> Result<(), Box<dyn Error>> {
+        dotenv::dotenv()?;
+
+        let mut conn = redis::Client::open("redis://127.0.0.1/")?.get_connection()?;
+        let persistent_conn =
+            MysqlConnection::establish(&env::var("DATABASE_URL").expect(
+                "DATABASE_URL must be set in a .env file for test to complete successfully",
+            ))?;
+
+        // Register MrMouton as a user so that we can specify his role
+        diesel::replace_into(users::table)
+            .values(NewUser::default().with_username("MrMouton"))
+            .execute(&persistent_conn)?;
+
+        // Get MrMouton's ID for easy testing
+        let id = users::dsl::users
+            .filter(users::dsl::username.eq("MrMouton"))
+            .select(users::dsl::id)
+            .first(&persistent_conn)?;
+
+        // Key mout alert
+        let mut roles = Hybrid::new(Cache::new(&mut conn), Persistent::new(&persistent_conn));
+        roles.give_role(id, &Role::Protected)?;
+
+        assert_eq!(roles.has_role(id, &Role::Protected)?, true);
+
+        Ok(())
     }
 }

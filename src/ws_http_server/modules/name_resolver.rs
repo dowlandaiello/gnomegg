@@ -248,10 +248,10 @@ impl<'a> Provider for Hybrid<'a> {
 #[cfg(test)]
 mod tests {
     use super::{super::super::super::spec::user::NewUser, *};
-
-    use diesel::connection::Connection;
     use dotenv;
-    use std::{default::Default, env};
+    use diesel::{Connection, mysql::MysqlConnection};
+
+    use std::{default::Default, env, error::Error};
 
     #[test]
     fn test_hybrid() -> Result<(), Box<dyn Error>> {

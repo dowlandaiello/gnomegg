@@ -3,7 +3,7 @@ use redis::RedisError;
 
 use super::{
     super::super::spec::{mute::Mute, schema::mutes},
-    Cache, Persistent, ProviderError, Hybrid,
+    Cache, Hybrid, Persistent, ProviderError,
 };
 
 /// Provider represents an arbitrary backend for the mutes service that may or
@@ -477,10 +477,10 @@ mod tests {
         super::super::super::spec::{schema::users, user::NewUser},
         *,
     };
-
-    use diesel::{connection::Connection, ExpressionMethods};
+    use diesel::{ExpressionMethods, Connection, mysql::MysqlConnection};
     use dotenv;
-    use std::{default::Default, env};
+
+    use std::{default::Default, env, error::Error};
 
     #[test]
     fn test_hybrid() -> Result<(), Box<dyn Error>> {
